@@ -1,0 +1,14 @@
+{
+  "extends": "@tsconfig/node20/tsconfig.json",
+  "_version": "20.10.0",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+  },
+  "include": [
+    "src/**/*.ts",
+  ],
+  "exclude": [
+    "src/public"
+  ]
+}
