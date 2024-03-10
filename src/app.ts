@@ -3,16 +3,25 @@ import path from 'path';
 import logger from 'morgan';
 import 'dotenv/config';
 import mongoose from 'mongoose';
-import apiRouter from './routes/api';
+// import apiRouter from './routes/api';
 import session from 'express-session';
-import { INext, IReq, IRes } from './types/types';
+import { INext, IReq, IRes } from './types/express';
 import { nanoid } from 'nanoid';
 import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
+import configureAuthentication from './middleware/configureAuth';
+import passport, { AuthenticateCallback } from 'passport';
+import { User } from './types/mongoose/User';
+import bcrypt from 'bcrypt';
+import expressWs from 'express-ws';
+import websocketHandler from './middleware/websocket';
 
-const app = express();
+// makes typescript aware of app.ws
+const app = expressWs(express()).app;
 
-app.set('trust proxy', true);
+configureAuthentication(app);
+
+// app.set('trust proxy', true);
 
 mongoose.set('strictQuery', true);
 
@@ -22,28 +31,12 @@ async function connectToDB() {
 }
 connectToDB().catch((err) => console.log(`Database connection error: ${err}`));
 
-const getSecret = () => {
-  const secret = process.env.SECRET;
-  if (!secret) {
-    throw new Error('.env secret key not found! Sessions need a secret key.');
-  }
-  return secret;
-};
+// const limiter = rateLimit({
+//   windowMs: 10 * 1000,
+//   max: 200,
+// });
 
-const limiter = rateLimit({
-  windowMs: 10 * 1000,
-  max: 200,
-});
-
-app.use(limiter);
-
-app.use(
-  session({
-    secret: getSecret(),
-    resave: false,
-    saveUninitialized: false,
-  })
-);
+// app.use(limiter);
 
 app.use(cookieParser());
 app.use(logger('dev'));
@@ -52,7 +45,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, 'build')));
 
 app.use((req: IReq, res: IRes, next: INext) => {
-  const { userId }: { userId: string | undefined } = req.cookies;
+  const { userId } = req.cookies; // : Record<string, string | undefined>
   if (!userId) {
     const id = nanoid();
     res.cookie('userId', id);
@@ -60,11 +53,58 @@ app.use((req: IReq, res: IRes, next: INext) => {
   next();
 });
 
-app.use('/api', apiRouter);
+// app.use('/api', apiRouter)
+
+app.post('/login', (req: IReq, res: IRes, next: INext) =>
+  passport.authenticate('local', function (err, user) {
+    if (err) {
+      console.log('err');
+      return res.json({
+        authenticated: false,
+        message: 'Server error. Try again.',
+      });
+    }
+    if (!user) {
+      return res.json({
+        authenticated: false,
+        message: 'User not found.',
+      });
+    }
+    console.log(user);
+    req.logIn(user, { session: true }, (err) => {
+      console.log(err);
+    });
+    res.json({ authenticated: true });
+  } as AuthenticateCallback)(req, res, next)
+);
+
+app.post(
+  '/register',
+  async (
+    req: IReq<{ username: string; password: string }>,
+    res: IRes,
+    next: INext
+  ) => {
+    const { username, password } = req.body;
+    try {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const user = await User.create({
+        username,
+        password: hashedPassword,
+      });
+      console.log(user);
+      res.json({ authenticated: true });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
 
 app.get('/', (req: IReq, res: IRes) => {
   res.sendFile(path.join(__dirname, 'build', 'index.html'));
 });
+
+app.ws('/echo', websocketHandler);
 
 // Catch 404
 app.use((req: IReq, res: IRes) => {
@@ -88,5 +128,7 @@ app.use((err: Error, req: IReq, res: IRes, next: INext): void => {
   res.locals.error = req.app.get('env') === 'development' ? err : {};
   res.status(500).json({ error: err });
 });
+
+app.listen(3000);
 
 export default app;
