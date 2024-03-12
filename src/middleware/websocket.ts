@@ -1,9 +1,23 @@
 import WebSocket from 'ws';
-import { IReq, ISendMessage, UserAction } from '../types/express';
+import { IReq, UserAction } from '../types/express';
+
+const allSockets: Set<WebSocket> = new Set();
 
 const rooms: {
-  [key: string]: WebSocket[];
+  [key: string]: {
+    users: string[];
+    sockets: Set<WebSocket>;
+  };
 } = {};
+
+const usersOnline: Map<
+  string,
+  {
+    username: string;
+    avatar: number;
+    bio: string;
+  }
+> = new Map();
 
 function websocketHandler(ws: WebSocket, req: IReq) {
   if (!req.user) {
@@ -11,37 +25,102 @@ function websocketHandler(ws: WebSocket, req: IReq) {
     return;
   }
 
-  ws.on('message', function (msg: WebSocket.RawData) {
+  let roomId = 'general';
+
+  allSockets.add(ws);
+
+  usersOnline.set(req.user.username, {
+    username: req.user.username,
+    avatar: req.user.avatar,
+    bio: req.user.bio,
+  });
+
+  joinRoom(ws, req.user, roomId);
+  ws.send(
+    JSON.stringify({
+      type: 'usersOnline',
+      usersOnline: Array.from(usersOnline.values()),
+    })
+  );
+
+  ws.on('message', (msg: WebSocket.RawData) => {
     if (!req.user) {
-      blockAction(ws, 'Message');
       return;
     }
     const data: UserAction = JSON.parse(msg.toString());
     console.log(data);
     const { action } = data;
     if (action === 'submitMessage') {
-      sendMessage(ws, req.user, data.content);
+      console.log('submitMessage');
+      sendMessage(req.user, data.content, roomId);
     }
     if (action === 'joinRoom') {
-      joinRoom(ws, data.room);
+      console.log('joinRoom');
+      sendTyping(req.user, false, roomId);
+      removeFromRoom(ws, roomId);
+      roomId = data.room;
+      joinRoom(ws, req.user, roomId);
     }
     if (action === 'typing') {
-      sendTyping(ws);
+      console.log('typing');
+      sendTyping(req.user, data.typing, roomId);
     }
-    // ws.send(msg);
+  });
+
+  ws.on('close', () => {
+    if (!req.user) {
+      return;
+    }
+    sendTyping(req.user, false, roomId);
+    usersOnline.delete(req.user.username);
+    allSockets.forEach((ws) => {
+      ws.send(
+        JSON.stringify({
+          type: 'usersOnline',
+          usersOnline: Array.from(usersOnline.values()),
+        })
+      );
+    });
+    removeFromRoom(ws, roomId);
+    allSockets.delete(ws);
   });
 }
 
-function sendMessage(ws: WebSocket, user: Express.User, content: string) {
+function sendTyping(user: Express.User, typing: boolean, room: string) {
+  const { username, avatar } = user;
+  const response = JSON.stringify({
+    type: 'typing',
+    typing,
+    user: { username },
+    avatar,
+  });
+  try {
+    console.log(rooms[room]);
+    rooms[room].sockets.forEach((ws) => {
+      ws.send(response);
+    });
+  } catch (error) {
+    console.log(error);
+  }
+}
+
+function sendMessage(user: Express.User, content: string, room: string) {
   const { username, avatar } = user;
   const response = JSON.stringify({
     type: 'message',
-    message: content,
+    content,
     user: { username, avatar },
     date: new Date(),
   });
   console.log(response);
-  ws.send(response);
+  try {
+    console.log(rooms[room]);
+    rooms[room].sockets.forEach((ws) => {
+      ws.send(response);
+    });
+  } catch (error) {
+    console.log(error);
+  }
 }
 
 function blockAction(ws: WebSocket, type: string) {
@@ -52,14 +131,26 @@ function blockAction(ws: WebSocket, type: string) {
     })
   );
   ws.close(1000);
-  console.log(`${type} blocked!`);
 }
 
-function joinRoom(ws: WebSocket, room: string) {
-  if (!rooms[room]) {
-    rooms[room] = [];
+function removeFromRoom(ws: WebSocket, room: string) {
+  if (rooms[room]) {
+    rooms[room].sockets.delete(ws);
+    if (!rooms[room].sockets.size) {
+      delete rooms[room];
+    }
   }
-  rooms[room].push(ws);
+}
+
+function joinRoom(ws: WebSocket, user: Express.User, room: string) {
+  if (!rooms[room]) {
+    rooms[room] = { sockets: new Set(), users: [] };
+  }
+  rooms[room].sockets.add(ws);
+  rooms[room].users.push(user.username);
+  rooms[room].sockets.forEach((ws) =>
+    ws.send(JSON.stringify({ type: 'roomUsers', users: rooms[room].users }))
+  );
 }
 
 export default websocketHandler;
