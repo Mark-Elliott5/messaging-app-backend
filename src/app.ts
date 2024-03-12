@@ -10,11 +10,13 @@ import { nanoid } from 'nanoid';
 import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import configureAuthentication from './middleware/configureAuth';
-import passport, { AuthenticateCallback } from 'passport';
-import { User } from './types/mongoose/User';
-import bcrypt from 'bcrypt';
 import expressWs from 'express-ws';
 import websocketHandler from './middleware/websocket';
+import {
+  guestHandler,
+  loginHandler,
+  registerHandler,
+} from './controllers/loginController';
 
 // makes typescript aware of app.ws
 const app = expressWs(express()).app;
@@ -25,11 +27,15 @@ configureAuthentication(app);
 
 mongoose.set('strictQuery', true);
 
-async function connectToDB() {
+const connectToDB = async () => {
   const mongoDBURI: string = process.env.MONGODB_URI ?? '';
   await mongoose.connect(mongoDBURI);
+};
+try {
+  connectToDB();
+} catch (err) {
+  console.log(`Database connection error: ${err}`);
 }
-connectToDB().catch((err) => console.log(`Database connection error: ${err}`));
 
 // const limiter = rateLimit({
 //   windowMs: 10 * 1000,
@@ -44,67 +50,17 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, 'build')));
 
-app.use((req: IReq, res: IRes, next: INext) => {
-  const { userId } = req.cookies; // : Record<string, string | undefined>
-  if (!userId) {
-    const id = nanoid();
-    res.cookie('userId', id);
-  }
-  next();
-});
+app.post('/login', loginHandler);
 
-// app.use('/api', apiRouter)
+app.post('/register', registerHandler, loginHandler);
 
-app.post('/login', (req: IReq, res: IRes, next: INext) =>
-  passport.authenticate('local', function (err, user) {
-    if (err) {
-      console.log('err');
-      return res.json({
-        authenticated: false,
-        message: 'Server error. Try again.',
-      });
-    }
-    if (!user) {
-      return res.json({
-        authenticated: false,
-        message: 'User not found.',
-      });
-    }
-    console.log(user);
-    req.logIn(user, { session: true }, (err) => {
-      console.log(err);
-    });
-    res.json({ authenticated: true });
-  } as AuthenticateCallback)(req, res, next)
-);
-
-app.post(
-  '/register',
-  async (
-    req: IReq<{ username: string; password: string }>,
-    res: IRes,
-    next: INext
-  ) => {
-    const { username, password } = req.body;
-    try {
-      const hashedPassword = await bcrypt.hash(password, 10);
-      const user = await User.create({
-        username,
-        password: hashedPassword,
-      });
-      console.log(user);
-      res.json({ authenticated: true });
-    } catch (err) {
-      next(err);
-    }
-  }
-);
+app.post('/guest', guestHandler);
 
 app.get('/', (req: IReq, res: IRes) => {
   res.sendFile(path.join(__dirname, 'build', 'index.html'));
 });
 
-app.ws('/echo', websocketHandler);
+app.ws('/chat', websocketHandler);
 
 // Catch 404
 app.use((req: IReq, res: IRes) => {

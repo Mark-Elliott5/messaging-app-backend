@@ -39,7 +39,7 @@ function websocketHandler(ws: WebSocket, req: IReq) {
   ws.send(
     JSON.stringify({
       type: 'usersOnline',
-      usersOnline: Array.from(usersOnline.values()),
+      users: Array.from(usersOnline.values()),
     })
   );
 
@@ -95,7 +95,6 @@ function sendTyping(user: Express.User, typing: boolean, room: string) {
     avatar,
   });
   try {
-    console.log(rooms[room]);
     rooms[room].sockets.forEach((ws) => {
       ws.send(response);
     });
@@ -114,7 +113,6 @@ function sendMessage(user: Express.User, content: string, room: string) {
   });
   console.log(response);
   try {
-    console.log(rooms[room]);
     rooms[room].sockets.forEach((ws) => {
       ws.send(response);
     });

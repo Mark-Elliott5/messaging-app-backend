@@ -1,10 +1,13 @@
 import { Application } from 'express';
 import passport from 'passport';
+import CustomStrategy from 'passport-custom';
 import { Strategy as LocalStrategy } from 'passport-local';
 import 'dotenv/config';
 import session from 'express-session';
 import bcrypt from 'bcrypt';
 import { User } from '../types/mongoose/User';
+import { Guest } from '../types/mongoose/Guest';
+import { IReq } from '../types/express';
 
 const configureAuthentication = (app: Application) => {
   const secret =
@@ -40,16 +43,39 @@ const configureAuthentication = (app: Application) => {
     })
   );
 
+  passport.use(
+    'guest',
+    new CustomStrategy.Strategy(
+      async (req: IReq<{ username: string }>, done) => {
+        try {
+          const guest = await Guest.findOne({
+            username: req.body.username,
+          });
+          if (!guest) {
+            return done(null, false);
+          }
+          return done(null, guest);
+        } catch (err) {
+          return done(err);
+        }
+      }
+    )
+  );
+
   passport.serializeUser((user, done) => {
-    done(null, user._id);
+    return done(null, user._id);
   });
 
   passport.deserializeUser(async (_id, done) => {
     try {
       const user = await User.findById(_id);
-      done(null, user);
+      if (!user) {
+        const guest = await Guest.findById(_id);
+        return done(null, guest);
+      }
+      return done(null, user);
     } catch (err) {
-      done(err);
+      return done(err);
     }
   });
 
