@@ -1,4 +1,5 @@
 import { Types } from 'mongoose';
+import WebSocket from 'ws';
 
 interface IMessage {
   type: 'message';
@@ -17,6 +18,13 @@ interface IDMTab {
     avatar: number;
   };
   room: string;
+}
+
+interface IUser {
+  username: string;
+  avatar: number;
+  bio: string;
+  ws: WebSocket;
 }
 
 interface ITyping {
@@ -41,13 +49,6 @@ interface IJoinRoom {
 interface IUsersOnline {
   type: string;
   usersOnline: string[];
-}
-
-interface IUser {
-  _id: Types.ObjectId;
-  username: string;
-  bio: string;
-  avatar: number;
 }
 
 export type {
