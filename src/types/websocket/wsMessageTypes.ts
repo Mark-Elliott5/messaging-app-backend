@@ -7,7 +7,7 @@ interface IMessage {
     username: string;
     avatar: number;
   };
-  date: string; // strigified, needs to be reconstructed with new Date(x)
+  date: Date; // will be stringified on frontend
 }
 
 interface IDMTab {

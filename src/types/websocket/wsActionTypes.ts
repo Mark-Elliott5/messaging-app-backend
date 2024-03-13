@@ -1,5 +1,5 @@
 interface ISendMessage {
-  action: 'submitMessage';
+  action: 'sendMessage';
   content: string; // FormDataEntryValue
 }
 
@@ -13,6 +13,26 @@ interface IJoinRoom {
   room: string;
 }
 
-type UserAction = ISendMessage | ITypingIndication | IJoinRoom;
+interface IJoinDMRoom {
+  action: 'joinDMRoom';
+  receiver: string;
+}
+
+// interface ISendDM {
+//   action: 'sendDM';
+//   content: string;
+//   // room: string;
+// }
+
+interface ISendDMTab {
+  action: 'dmTab';
+  sender: {
+    username: string;
+    avatar: number;
+  };
+  room: string;
+}
+
+type UserAction = ISendMessage | ITypingIndication | IJoinRoom | IJoinDMRoom;
 
 export type { UserAction, IJoinRoom, ISendMessage, ITypingIndication };
