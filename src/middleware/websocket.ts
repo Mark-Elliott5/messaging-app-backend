@@ -1,5 +1,6 @@
 import WebSocket from 'ws';
-import { IReq, UserAction } from '../types/express';
+import { IReq } from '../types/express';
+import { UserAction } from '../types/websocket/wsActionTypes';
 
 const allSockets: Set<WebSocket> = new Set();
 
@@ -91,8 +92,7 @@ function sendTyping(user: Express.User, typing: boolean, room: string) {
   const response = JSON.stringify({
     type: 'typing',
     typing,
-    user: { username },
-    avatar,
+    user: { username, avatar },
   });
   try {
     rooms[room].sockets.forEach((ws) => {

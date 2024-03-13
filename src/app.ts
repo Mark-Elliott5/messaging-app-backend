@@ -4,9 +4,7 @@ import logger from 'morgan';
 import 'dotenv/config';
 import mongoose from 'mongoose';
 // import apiRouter from './routes/api';
-import session from 'express-session';
 import { INext, IReq, IRes } from './types/express';
-import { nanoid } from 'nanoid';
 import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import configureAuthentication from './middleware/configureAuth';
@@ -28,14 +26,14 @@ configureAuthentication(app);
 mongoose.set('strictQuery', true);
 
 const connectToDB = async () => {
-  const mongoDBURI: string = process.env.MONGODB_URI ?? '';
-  await mongoose.connect(mongoDBURI);
+  try {
+    const mongoDBURI: string = process.env.MONGODB_URI ?? '';
+    await mongoose.connect(mongoDBURI);
+  } catch (err) {
+    console.log(`Database connection error: ${err}`);
+  }
 };
-try {
-  connectToDB();
-} catch (err) {
-  console.log(`Database connection error: ${err}`);
-}
+connectToDB();
 
 // const limiter = rateLimit({
 //   windowMs: 10 * 1000,
@@ -57,7 +55,8 @@ app.post('/register', registerHandler, loginHandler);
 app.post('/guest', guestHandler);
 
 app.get('/', (req: IReq, res: IRes) => {
-  res.sendFile(path.join(__dirname, 'build', 'index.html'));
+  req.user ? res.cookie('loggedIn', 'true') : res.clearCookie('loggedIn');
+  res.sendFile(path.join(__dirname, 'build', 'app.html'));
 });
 
 app.ws('/chat', websocketHandler);

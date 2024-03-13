@@ -9,10 +9,15 @@ export interface IGuest {
 }
 
 const guestSchema = new Schema<IGuest, Model<IGuest>>({
-  username: { type: String, required: true },
-  password: { type: String },
-  bio: { type: String },
-  avatar: { type: Number },
+  username: {
+    type: String,
+    required: true,
+    unique: true,
+    minlength: 1,
+    maxlength: 8,
+  },
+  bio: { type: String, default: '' },
+  avatar: { type: Number, default: 0 },
 });
 
 export const Guest = model('Guest', guestSchema);

@@ -10,24 +10,6 @@ declare module 'express-session' {
   interface SessionData extends IUser {}
 }
 
-export interface ISendMessage {
-  action: 'submitMessage';
-  content: string; // FormDataEntryValue
-  // need to add current channel property inherited from App.tsx
-}
-
-export interface ITypingIndication {
-  action: 'typing';
-  typing: boolean;
-}
-
-export interface IJoinRoom {
-  action: 'joinRoom';
-  room: string;
-}
-
-export type UserAction = ISendMessage | ITypingIndication | IJoinRoom;
-
 export interface IReq<T = void> extends Request {
   body: T;
 }
