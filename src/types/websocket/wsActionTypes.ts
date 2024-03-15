@@ -15,24 +15,19 @@ interface IJoinRoom {
 
 interface IJoinDMRoom {
   action: 'joinDMRoom';
-  receiver: string;
-}
-
-// interface ISendDM {
-//   action: 'sendDM';
-//   content: string;
-//   // room: string;
-// }
-
-interface ISendDMTab {
-  action: 'dmTab';
-  sender: {
-    username: string;
-    avatar: number;
-  };
   room: string;
 }
 
-type UserAction = ISendMessage | ITypingIndication | IJoinRoom | IJoinDMRoom;
+interface ICreateDMRoom {
+  action: 'createDMRoom';
+  receiver: string;
+}
+
+type UserAction =
+  | ISendMessage
+  | ITypingIndication
+  | IJoinRoom
+  | IJoinDMRoom
+  | ICreateDMRoom;
 
 export type { UserAction, IJoinRoom, ISendMessage, ITypingIndication };

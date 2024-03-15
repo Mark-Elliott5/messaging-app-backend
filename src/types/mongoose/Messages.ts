@@ -10,7 +10,7 @@ const messageSchema = new Schema<IMessageModel, Model<IMessageModel>>({
     type: String,
     required: true,
     minlength: 1,
-    maxlength: 320,
+    maxlength: 900,
   },
   user: {
     username: { type: String, required: true },

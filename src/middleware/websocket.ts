@@ -2,43 +2,40 @@ import WebSocket from 'ws';
 import { IReq } from '../types/express';
 import { UserAction } from '../types/websocket/wsActionTypes';
 import { IMessageModel, Message } from '../types/mongoose/Messages';
-import { IDMTab, IUser } from '../types/websocket/wsMessageTypes';
+import {
+  IBlocked,
+  IDMRooms,
+  IDMTab,
+  IJoinRoom,
+  IMessageHistory,
+  IOnlineUser,
+  IResponseUser,
+  IRoomUsers,
+  IRooms,
+  ITyping,
+  IUsersOnline,
+} from '../types/websocket/wsMessageTypes';
 
 const allSockets: Set<WebSocket> = new Set();
 
-const rooms: {
-  [key: string]: {
-    users: Set<IUser>;
-    sockets: Set<WebSocket>;
-    messages: IMessageModel[];
-  };
-} = {};
+const rooms: IRooms = {};
 
-const dmRooms: {
-  [key: string]: {
-    users: Set<string>;
-    sockets: Set<WebSocket>;
-    sender: IUser;
-    receiver: IUser;
-    messages: {
-      content: string;
-      date: Date;
-      user: { username: string; avatar: number };
-    }[];
-  };
-} = {};
+const dmRooms: IDMRooms = {};
 
-const usersOnline: Map<string, IUser> = new Map();
+const usersOnline: Map<string, IOnlineUser> = new Map();
 
 function websocketHandler(ws: WebSocket, req: IReq) {
   if (!req.user) {
-    blockAction(ws, 'Connect');
+    blockAction(ws, 'User not logged in.');
     return;
+  }
+  if (usersOnline.has(req.user.username)) {
+    usersOnline.get(req.user.username)!.ws.close(1000);
   }
 
   let inDMRoom = false;
 
-  let roomId = 'general';
+  let roomId = 'General';
 
   allSockets.add(ws);
 
@@ -50,12 +47,12 @@ function websocketHandler(ws: WebSocket, req: IReq) {
   });
 
   joinRoom(ws, req.user, roomId);
-  ws.send(
-    JSON.stringify({
-      type: 'usersOnline',
-      users: Array.from(usersOnline.values()),
-    })
-  );
+  const usersOnlineMessage: IUsersOnline = {
+    type: 'usersOnline',
+    usersOnline: getIResponseUsers(usersOnline),
+  };
+  const jsonString = JSON.stringify(usersOnlineMessage);
+  allSockets.forEach((ws) => ws.send(jsonString));
 
   ws.on('message', (msg: WebSocket.RawData) => {
     if (!req.user) {
@@ -66,35 +63,48 @@ function websocketHandler(ws: WebSocket, req: IReq) {
     const { action } = data;
     if (action === 'sendMessage') {
       if (inDMRoom) {
+        console.log('inDmRoom');
         sendDM(req.user, data.content, roomId);
         sendDMTabs(roomId);
         return;
       }
       console.log('sendMessage');
       sendMessage(req.user, data.content, roomId);
+      return;
     }
     if (action === 'joinRoom') {
       console.log('joinRoom');
-      sendTyping(req.user, false, roomId);
-      removeFromRoom(ws, roomId);
+      sendTyping(req.user, false, inDMRoom, roomId);
+      removeFromRoom(ws, req.user, roomId);
+      inDMRoom = false;
       roomId = data.room;
       joinRoom(ws, req.user, roomId);
+      return;
+    }
+    if (action === 'createDMRoom') {
+      console.log('createDMRoom');
+      const room = createDMRoom(ws, req.user, data.receiver);
+      if (!room || room === roomId) return;
+      joinDMRoom(ws, req.user, room);
+      sendTyping(req.user, false, inDMRoom, roomId);
+      removeFromRoom(ws, req.user, roomId);
+      inDMRoom = true;
+      roomId = room;
+      return;
     }
     if (action === 'joinDMRoom') {
       console.log('joinDMRoom');
-      const dmRoom = joinDMRoom(ws, req.user, data.receiver);
-      if (!dmRoom) {
-        ws.send(JSON.stringify({ type: 'blocked', message: 'Access denied.' }));
-        return;
-      }
-      sendTyping(req.user, false, roomId);
-      removeFromRoom(ws, roomId);
+      joinDMRoom(ws, req.user, data.room);
+      sendTyping(req.user, false, inDMRoom, roomId);
+      removeFromRoom(ws, req.user, roomId);
       inDMRoom = true;
-      roomId = dmRoom;
+      roomId = data.room;
+      return;
     }
     if (action === 'typing') {
       console.log('typing');
-      sendTyping(req.user, data.typing, roomId);
+      sendTyping(req.user, data.typing, inDMRoom, roomId);
+      return;
     }
   });
 
@@ -102,32 +112,41 @@ function websocketHandler(ws: WebSocket, req: IReq) {
     if (!req.user) {
       return;
     }
-    sendTyping(req.user, false, roomId);
+    sendTyping(req.user, false, inDMRoom, roomId);
     usersOnline.delete(req.user.username);
-    allSockets.forEach((ws) => {
-      ws.send(
-        JSON.stringify({
-          type: 'usersOnline',
-          usersOnline: Array.from(usersOnline.values()),
-        })
-      );
-    });
-    removeFromRoom(ws, roomId);
     allSockets.delete(ws);
+    const usersOnlineMessage: IUsersOnline = {
+      type: 'usersOnline',
+      usersOnline: getIResponseUsers(usersOnline),
+    };
+    const jsonString = JSON.stringify(usersOnlineMessage);
+    allSockets.forEach((ws) => {
+      ws.send(jsonString);
+    });
+    removeFromRoom(ws, req.user, roomId);
+    return;
   });
 }
 
-function sendTyping(user: Express.User, typing: boolean, room: string) {
-  const { username, avatar } = user;
-  const response = JSON.stringify({
+function sendTyping(
+  user: Express.User,
+  typing: boolean,
+  inDMRoom: boolean,
+  room: string
+) {
+  const { username, avatar, bio } = user;
+  const typingMessage: ITyping = {
     type: 'typing',
     typing,
-    user: { username, avatar },
-  });
+    user: { username, avatar, bio },
+  };
+  const jsonString = JSON.stringify(typingMessage);
   try {
-    rooms[room].sockets.forEach((ws) => {
-      ws.send(response);
-    });
+    if (!inDMRoom) {
+      rooms[room].sockets.forEach((ws) => ws.send(jsonString));
+      return;
+    }
+    dmRooms[room].sockets.forEach((ws) => ws.send(jsonString));
   } catch (error) {
     console.log(error);
   }
@@ -135,21 +154,22 @@ function sendTyping(user: Express.User, typing: boolean, room: string) {
 
 async function sendMessage(user: Express.User, content: string, room: string) {
   // making sure to not send user.password accidentally
-  const { username, avatar } = user;
-  const response: IMessageModel = {
+  const { username, avatar, bio } = user;
+  const message: IMessageModel = {
     type: 'message',
     content,
-    user: { username, avatar },
+    user: { username, avatar, bio },
     date: new Date(),
     room,
   };
-  console.log(response);
-  rooms[room].messages.push(response);
+  console.log(message);
+  const jsonString = JSON.stringify(message);
+  rooms[room].messages.push(message);
   rooms[room].sockets.forEach((ws) => {
-    ws.send(JSON.stringify(response));
+    ws.send(jsonString);
   });
   try {
-    await Message.create(response);
+    await Message.create(message);
   } catch (err) {
     console.log(err);
   }
@@ -157,17 +177,25 @@ async function sendMessage(user: Express.User, content: string, room: string) {
 }
 
 function sendDM(user: Express.User, content: string, room: string) {
-  const { username, avatar } = user;
-  const response: IMessageModel = {
+  const { username, avatar, bio } = user;
+  const dm: IMessageModel = {
     type: 'message',
     content,
-    user: { username, avatar },
+    user: { username, avatar, bio },
     date: new Date(),
     room,
   };
-  dmRooms[room].messages.push(response);
+  dmRooms[room].messages.push(dm);
+  // check for missing user (disconnect/reconnected scenario)
+  if (dmRooms[room].sockets.size < 2) {
+    const senderSocket = usersOnline.get(dmRooms[room].sender.username)?.ws;
+    const receiverSocket = usersOnline.get(dmRooms[room].receiver.username)?.ws;
+    senderSocket ? (dmRooms[room].sender.ws = senderSocket) : null;
+    receiverSocket ? (dmRooms[room].receiver.ws = receiverSocket) : null;
+  }
+  const jsonString = JSON.stringify(dm);
   dmRooms[room].sockets.forEach((ws) => {
-    ws.send(JSON.stringify(response));
+    ws.send(jsonString);
   });
 }
 
@@ -176,97 +204,190 @@ function sendDMTabs(room: string) {
   const sender = dmRooms[room].sender;
   const senderTab: IDMTab = {
     type: 'dmTab',
-    sender: receiver,
+    sender: {
+      username: receiver.username,
+      avatar: receiver.avatar,
+      bio: receiver.bio,
+    },
     room,
   };
   const receiverTab: IDMTab = {
     type: 'dmTab',
-    sender: sender,
+    sender: {
+      username: sender.username,
+      avatar: sender.avatar,
+      bio: sender.bio,
+    },
     room,
   };
+  console.log('sendingTabs');
   dmRooms[room].sender.ws.send(JSON.stringify(senderTab));
   dmRooms[room].receiver.ws.send(JSON.stringify(receiverTab));
 }
 
-function blockAction(ws: WebSocket, type: string) {
-  ws.send(
-    JSON.stringify({
-      type: 'blocked',
-      message: 'User not logged in.',
-    })
-  );
+function blockAction(ws: WebSocket, message: string) {
+  const blockMessage: IBlocked = {
+    type: 'blocked',
+    message,
+  };
+  const jsonString = JSON.stringify(blockMessage);
+  ws.send(jsonString);
   ws.close(1000);
 }
 
-function removeFromRoom(ws: WebSocket, room: string) {
+function removeFromRoom(ws: WebSocket, user: Express.User, room: string) {
   if (rooms[room]) {
     rooms[room].sockets.delete(ws);
-    if (!rooms[room].sockets.size) {
-      delete rooms[room];
-    }
-  } else if (dmRooms[room]) {
+    rooms[room].users.delete(user.username);
+    const roomUsersMessage: IRoomUsers = {
+      type: 'roomUsers',
+      roomUsers: getIResponseUsers(rooms[room].users),
+    };
+    const jsonString = JSON.stringify(roomUsersMessage);
+    rooms[room].sockets.forEach((ws) => {
+      ws.send(jsonString);
+    });
+    // if (!rooms[room].sockets.size) {
+    //   delete rooms[room];
+    // }
+  }
+  if (dmRooms[room]) {
     dmRooms[room].sockets.delete(ws);
-    if (!dmRooms[room].sockets.size) {
-      delete dmRooms[room];
-    }
+    dmRooms[room].users.delete(user.username);
+    const dmRoomUsersMessage: IRoomUsers = {
+      type: 'roomUsers',
+      roomUsers: getIResponseUsers(dmRooms[room].users),
+    };
+    const jsonString = JSON.stringify(dmRoomUsersMessage);
+    dmRooms[room].sockets.forEach((ws) => {
+      ws.send(jsonString);
+    });
+    // if (!dmRooms[room].sockets.size) {
+    //   delete dmRooms[room];
+    // }
+    // relegated to cleanup function to delete dmRooms after x time
   }
 }
 
-function joinDMRoom(ws: WebSocket, user: Express.User, receiver: string) {
-  const room = `${user.username}-${receiver}`;
-  if (dmRooms[room]) {
-    if (!dmRooms[room].users.has(user.username)) {
-      // make sure request is not coming from malicious user that is not in the DM
-      return false; // maybe send 'error' message here, have component display it
-    }
+function createDMRoom(ws: WebSocket, user: Express.User, receiver: string) {
+  if (user.username === receiver) {
+    return;
   }
-  const receiverOnline = usersOnline.get(receiver);
-  // if receiver not online
-  if (!receiverOnline) {
-    return false;
-  }
-  const sender = usersOnline.get(user.username)!;
+  const room = `${user.username} & ${receiver}`;
   if (!dmRooms[room]) {
+    const receiverOnline = usersOnline.get(receiver);
+    if (!receiverOnline) {
+      return;
+    }
+    const sender = usersOnline.get(user.username)!;
     dmRooms[room] = {
       sockets: new Set(),
-      users: new Set([user.username, receiver]),
+      users: new Map(),
       messages: [],
       sender,
       receiver: receiverOnline,
     };
   }
-  dmRooms[room].sockets.add(ws);
-  dmRooms[room].sockets.forEach((ws) => {
-    ws.send(JSON.stringify({ type: 'roomUsers', users: dmRooms[room].users }));
-    ws.send(
-      JSON.stringify({
-        type: 'messageHistory',
-        messageHistory: dmRooms[room].messages,
-      })
-    );
-  });
   return room;
+}
+
+function joinDMRoom(ws: WebSocket, user: Express.User, room: string) {
+  if (!dmRooms[room]) {
+    const blockedMessage: IBlocked = {
+      type: 'blocked',
+      message: 'Room does not exist.',
+    };
+    const jsonString = JSON.stringify(blockedMessage);
+    ws.send(jsonString);
+    return;
+  }
+  // make sure request is not coming from malicious user that is not in the DM
+  if (
+    dmRooms[room].sender.username !== user.username &&
+    dmRooms[room].receiver.username !== user.username
+  ) {
+    const blockedMessage: IBlocked = {
+      type: 'blocked',
+      message: 'Access denied.',
+    };
+    const jsonString = JSON.stringify(blockedMessage);
+    ws.send(jsonString);
+    return; // maybe send 'error' message here, have component display it
+  }
+  // const receiver = usersOnline.get(dmRooms[room].sender.username);
+  // // if receiver not online
+  // // if (!receiverOnline) {
+  // //   return;
+  // // }
+  // const sender = usersOnline.get(user.username)!;
+  const { username, avatar, bio } = user;
+  dmRooms[room].users.set(username, {
+    username,
+    avatar,
+    bio,
+    ws,
+  });
+  dmRooms[room].sockets.add(ws);
+  const joinRoomMessage: IJoinRoom = {
+    type: 'joinRoom',
+    room,
+  };
+  const messageHistoryMessage: IMessageHistory = {
+    type: 'messageHistory',
+    messageHistory: dmRooms[room].messages,
+  };
+  ws.send(JSON.stringify(joinRoomMessage));
+  ws.send(JSON.stringify(messageHistoryMessage));
+  const roomUsersMessage: IRoomUsers = {
+    type: 'roomUsers',
+    roomUsers: getIResponseUsers(dmRooms[room].users),
+  };
+  const jsonString = JSON.stringify(roomUsersMessage);
+  dmRooms[room].sockets.forEach((ws) => {
+    ws.send(jsonString);
+  });
 }
 
 function joinRoom(ws: WebSocket, user: Express.User, room: string) {
   if (!rooms[room]) {
-    rooms[room] = { sockets: new Set(), users: new Set(), messages: [] };
+    rooms[room] = { sockets: new Set(), users: new Map(), messages: [] };
   }
   rooms[room].sockets.add(ws);
-  rooms[room].users.add(usersOnline.get(user.username)!);
+  rooms[room].users.set(user.username, usersOnline.get(user.username)!);
+  const joinRoomMessage: IJoinRoom = {
+    type: 'joinRoom',
+    room,
+  };
+  const roomUsersMessage: IRoomUsers = {
+    type: 'roomUsers',
+    roomUsers: getIResponseUsers(rooms[room].users),
+  };
+  const messageHistoryMessage: IMessageHistory = {
+    type: 'messageHistory',
+    messageHistory: rooms[room].messages,
+  };
+  const joinRoomJsonString = JSON.stringify(joinRoomMessage);
+  const roomUsersJsonString = JSON.stringify(roomUsersMessage);
+  const messageHistoryJsonString = JSON.stringify(messageHistoryMessage);
   rooms[room].sockets.forEach((ws) => {
-    ws.send(JSON.stringify({ type: 'roomUsers', users: rooms[room].users }));
-    ws.send(
-      JSON.stringify({
-        type: 'messageHistory',
-        messageHistory: rooms[room].messages,
-      })
-    );
+    ws.send(joinRoomJsonString);
+    ws.send(roomUsersJsonString);
+    ws.send(messageHistoryJsonString);
   });
 }
 
+// function convertUsers(IOnlineUsers: Set<IOnlineUser>): Set<IResponseUser> {
+//   const IResponseUsers = new Set(
+//     Array.from(IOnlineUsers).map((IOnlineUser) => {
+//       const { ws, ...IResponseUser } = IOnlineUser;
+//       return IResponseUser;
+//     })
+//   );
+//   return IResponseUsers;
+// }
+
 function cleanupDMRooms() {
-  //   // check dmRooms for time last message was sent, then delete room
+  // check dmRooms for time last message was sent, then delete room
   Object.keys(dmRooms).forEach((room) => {
     const { messages } = dmRooms[room];
     const lastMessage = messages[messages.length - 1].date;
@@ -279,7 +400,18 @@ function cleanupDMRooms() {
   });
 }
 
-// delete rooms every 15 minutes
+function getIResponseUsers(users: Set<IOnlineUser> | Map<string, IOnlineUser>) {
+  const newUsers: IResponseUser[] = Array.from(users.values()).map(
+    ({ ws, ...data }) => data
+  );
+  console.log(newUsers);
+  return newUsers;
+}
+
+// check for rooms to delete every 15 minutes
 setInterval(cleanupDMRooms, 900000);
+
+// need the same interval for cleaning up dmRooms/rooms messages
+// X message buffer before saving to database
 
 export default websocketHandler;

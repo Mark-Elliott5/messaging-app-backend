@@ -16,7 +16,7 @@ const userSchema = new Schema<IUser, Model<IUser>>({
     minlength: 2,
     maxlength: 16,
   },
-  password: { type: String, required: true, minlength: 4, maxlength: 32 },
+  password: { type: String, required: true, minlength: 4 },
   bio: { type: String, default: '' },
   avatar: { type: Number, default: 1 },
 });

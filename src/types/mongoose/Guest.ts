@@ -14,7 +14,7 @@ const guestSchema = new Schema<IGuest, Model<IGuest>>({
     required: true,
     unique: true,
     minlength: 1,
-    maxlength: 8,
+    maxlength: 11,
   },
   bio: { type: String, default: '' },
   avatar: { type: Number, default: 0 },

@@ -1,39 +1,35 @@
-import { Types } from 'mongoose';
+import { IMessageModel } from '../mongoose/Messages';
 import WebSocket from 'ws';
+
+// responses
+
+interface IResponseUser {
+  username: string;
+  avatar: number;
+  bio: string;
+}
+
+interface IOnlineUser extends IResponseUser {
+  ws: WebSocket;
+}
 
 interface IMessage {
   type: 'message';
   content: string;
-  user: {
-    username: string;
-    avatar: number;
-  };
+  user: IResponseUser;
   date: Date; // will be stringified on frontend
 }
 
 interface IDMTab {
   type: 'dmTab';
-  sender: {
-    username: string;
-    avatar: number;
-  };
+  sender: IResponseUser;
   room: string;
-}
-
-interface IUser {
-  username: string;
-  avatar: number;
-  bio: string;
-  ws: WebSocket;
 }
 
 interface ITyping {
   type: 'typing';
   typing: boolean;
-  user: {
-    username: string;
-    avatar: number;
-  };
+  user: IResponseUser;
 }
 
 interface IBlocked {
@@ -42,21 +38,56 @@ interface IBlocked {
 }
 
 interface IJoinRoom {
-  type: string;
-  users: string[];
+  type: 'joinRoom';
+  room: string;
+}
+
+interface IRoomUsers {
+  type: 'roomUsers';
+  roomUsers: IResponseUser[]; // sets cannot be stringified, so must be array
 }
 
 interface IUsersOnline {
-  type: string;
-  usersOnline: string[];
+  type: 'usersOnline';
+  usersOnline: IResponseUser[]; // sets cannot be stringified, so must be array
+}
+
+interface IMessageHistory {
+  type: 'messageHistory';
+  messageHistory: IMessageModel[];
+}
+
+// room types
+
+interface IDMRooms {
+  [key: string]: {
+    users: Map<string, IOnlineUser>;
+    sockets: Set<WebSocket>;
+    sender: IOnlineUser;
+    receiver: IOnlineUser;
+    messages: IMessageModel[];
+  };
+}
+
+interface IRooms {
+  [key: string]: {
+    users: Map<string, IOnlineUser>;
+    sockets: Set<WebSocket>;
+    messages: IMessageModel[];
+  };
 }
 
 export type {
   ITyping,
   IBlocked,
   IJoinRoom,
-  IUsersOnline,
+  IOnlineUser,
   IMessage,
   IDMTab,
-  IUser,
+  IRooms,
+  IDMRooms,
+  IRoomUsers,
+  IMessageHistory,
+  IResponseUser,
+  IUsersOnline,
 };
