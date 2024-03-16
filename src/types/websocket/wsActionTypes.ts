@@ -23,11 +23,28 @@ interface ICreateDMRoom {
   receiver: string;
 }
 
+interface IEditProfile {
+  action: 'editProfile';
+  profile: {
+    avatar?: number;
+    bio?: string;
+  };
+}
+
 type UserAction =
   | ISendMessage
   | ITypingIndication
   | IJoinRoom
   | IJoinDMRoom
-  | ICreateDMRoom;
+  | ICreateDMRoom
+  | IEditProfile;
 
-export type { UserAction, IJoinRoom, ISendMessage, ITypingIndication };
+export type {
+  UserAction,
+  IJoinRoom,
+  ISendMessage,
+  ICreateDMRoom,
+  IJoinDMRoom,
+  ITypingIndication,
+  IEditProfile,
+};

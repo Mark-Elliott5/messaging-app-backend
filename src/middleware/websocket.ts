@@ -20,6 +20,7 @@ import {
   joinDMRoom,
   cleanupDMRooms,
   removeFromRoom,
+  updateUser,
 } from '../controllers/websocketFunctions';
 
 const allSockets: IAllSockets = new Set();
@@ -111,6 +112,10 @@ function websocketHandler(ws: WebSocket, req: IReq) {
       console.log('typing');
       sendTyping(req.user, data.typing, inDMRoom ? dmRooms : rooms, roomId);
       return;
+    }
+    if (action === 'editProfile') {
+      console.log('editProfile');
+      updateUser(req.user, data.profile);
     }
   });
 

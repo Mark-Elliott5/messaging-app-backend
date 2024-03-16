@@ -16,6 +16,7 @@ import {
   IUsersOnlineMap,
 } from '../types/websocket/wsRoomTypes';
 import { User } from '../types/mongoose/User';
+import { IEditProfile } from '../types/websocket/wsActionTypes';
 
 function sendTyping(
   user: Express.User,
@@ -288,6 +289,30 @@ function cleanupDMRooms(dmRooms: IDMRooms) {
   });
 }
 
+async function updateUser(
+  user: Express.User,
+  profile: IEditProfile['profile']
+) {
+  try {
+    const newDetails = { avatar: 0, bio: '' };
+    if (profile.avatar && typeof profile.avatar === 'number') {
+      if (profile.avatar < 0 || profile.avatar > 13) {
+        throw new Error('Avatar not in range 0-13.');
+      }
+      newDetails.avatar = profile.avatar;
+    }
+    if (profile.bio) {
+      if (typeof profile.bio !== 'string') {
+        throw new Error('Bio must be a string.');
+      }
+      newDetails.bio = profile.bio;
+    }
+    await User.findByIdAndUpdate(user._id, newDetails);
+  } catch (err) {
+    return err;
+  }
+}
+
 function getIResponseUsersFromRoom(
   users: Set<IOnlineUser> | Map<string, IOnlineUser>
 ) {
@@ -310,4 +335,5 @@ export {
   sendDMTabs,
   sendMessage,
   sendTyping,
+  updateUser,
 };

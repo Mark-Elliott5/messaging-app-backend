@@ -18,7 +18,7 @@ const userSchema = new Schema<IUser, Model<IUser>>({
   },
   password: { type: String, required: true, minlength: 4 },
   bio: { type: String, default: '' },
-  avatar: { type: Number, default: 1 },
+  avatar: { type: Number, default: 1, min: 0, max: 13 },
 });
 
 export const User = model('User', userSchema);
