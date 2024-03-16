@@ -15,6 +15,7 @@ import {
   IRooms,
   IUsersOnlineMap,
 } from '../types/websocket/wsRoomTypes';
+import { User } from '../types/mongoose/User';
 
 function sendTyping(
   user: Express.User,
@@ -187,7 +188,6 @@ function removeFromRoom(
 }
 
 function createDMRoom(
-  ws: WebSocket,
   user: Express.User,
   usersOnline: IUsersOnlineMap,
   dmRooms: IDMRooms,
@@ -195,6 +195,10 @@ function createDMRoom(
 ) {
   if (user.username === receiver) {
     return;
+  }
+  const existingRoom = `${receiver} & ${user.username}`;
+  if (dmRooms[existingRoom]) {
+    return existingRoom;
   }
   const room = `${user.username} & ${receiver}`;
   if (!dmRooms[room]) {

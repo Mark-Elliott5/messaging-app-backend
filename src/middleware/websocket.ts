@@ -89,13 +89,7 @@ function websocketHandler(ws: WebSocket, req: IReq) {
     }
     if (action === 'createDMRoom') {
       console.log('createDMRoom');
-      const room = createDMRoom(
-        ws,
-        req.user,
-        usersOnline,
-        dmRooms,
-        data.receiver
-      );
+      const room = createDMRoom(req.user, usersOnline, dmRooms, data.receiver);
       if (!room || room === roomId) return;
       joinDMRoom(ws, req.user, dmRooms, room);
       sendTyping(req.user, false, inDMRoom ? dmRooms : rooms, roomId);
