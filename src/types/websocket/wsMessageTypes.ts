@@ -13,81 +13,59 @@ interface IOnlineUser extends IResponseUser {
   ws: WebSocket;
 }
 
-interface IMessage {
+interface IMessageMessage {
   type: 'message';
   content: string;
   user: IResponseUser;
   date: Date; // will be stringified on frontend
 }
 
-interface IDMTab {
+interface IDMTabMessage {
   type: 'dmTab';
   sender: IResponseUser;
   room: string;
 }
 
-interface ITyping {
+interface ITypingMessage {
   type: 'typing';
   typing: boolean;
   user: IResponseUser;
 }
 
-interface IBlocked {
+interface IBlockedMessage {
   type: 'blocked';
   message: string;
 }
 
-interface IJoinRoom {
+interface IJoinRoomMessage {
   type: 'joinRoom';
   room: string;
 }
 
-interface IRoomUsers {
+interface IRoomUsersMessage {
   type: 'roomUsers';
   roomUsers: IResponseUser[]; // sets cannot be stringified, so must be array
 }
 
-interface IUsersOnline {
+interface IUsersOnlineMessage {
   type: 'usersOnline';
   usersOnline: IResponseUser[]; // sets cannot be stringified, so must be array
 }
 
-interface IMessageHistory {
+interface IMessageHistoryMessage {
   type: 'messageHistory';
   messageHistory: IMessageModel[];
 }
 
-// room types
-
-interface IDMRooms {
-  [key: string]: {
-    users: Map<string, IOnlineUser>;
-    sockets: Set<WebSocket>;
-    sender: IOnlineUser;
-    receiver: IOnlineUser;
-    messages: IMessageModel[];
-  };
-}
-
-interface IRooms {
-  [key: string]: {
-    users: Map<string, IOnlineUser>;
-    sockets: Set<WebSocket>;
-    messages: IMessageModel[];
-  };
-}
-
 export type {
-  ITyping,
-  IBlocked,
-  IJoinRoom,
-  IOnlineUser,
-  IMessage,
-  IDMTab,
-  IRooms,
-  IDMRooms,
-  IRoomUsers,
-  IMessageHistory,
   IResponseUser,
-  IUsersOnline,
+  IOnlineUser,
+  IMessageMessage,
+  IDMTabMessage,
+  ITypingMessage,
+  IBlockedMessage,
+  IJoinRoomMessage,
+  IRoomUsersMessage,
+  IUsersOnlineMessage,
+  IMessageHistoryMessage,
 };
