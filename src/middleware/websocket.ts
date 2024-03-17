@@ -1,7 +1,11 @@
 import WebSocket from 'ws';
 import { IReq } from '../types/express';
 import { UserAction } from '../types/websocket/wsActionTypes';
-import { IUsersOnlineMessage } from '../types/websocket/wsMessageTypes';
+import {
+  IProfileMessage,
+  IRoomUsersMessage,
+  IUsersOnlineMessage,
+} from '../types/websocket/wsMessageTypes';
 import {
   IRooms,
   IDMRooms,
@@ -20,7 +24,7 @@ import {
   joinDMRoom,
   cleanupDMRooms,
   removeFromRoom,
-  updateUser,
+  updateProfile,
   populateRoomHistory,
 } from '../controllers/websocketFunctions';
 
@@ -60,8 +64,19 @@ function websocketHandler(ws: WebSocket, req: IReq) {
     type: 'usersOnline',
     usersOnline: getIResponseUsersFromRoom(usersOnline),
   };
-  const jsonString = JSON.stringify(usersOnlineMessage);
-  allSockets.forEach((ws) => ws.send(jsonString));
+  const usersOnlineString = JSON.stringify(usersOnlineMessage);
+  allSockets.forEach((ws) => ws.send(usersOnlineString));
+
+  const userProfile: IProfileMessage = {
+    type: 'profile',
+    profile: {
+      username: req.user.username,
+      avatar: req.user.avatar,
+      bio: req.user.bio,
+    },
+  };
+  const userProfileString = JSON.stringify(userProfile);
+  ws.send(userProfileString);
 
   ws.on('message', (msg: WebSocket.RawData) => {
     if (!req.user) {
@@ -78,7 +93,12 @@ function websocketHandler(ws: WebSocket, req: IReq) {
         return;
       }
       console.log('sendMessage');
-      sendMessage(req.user, data.content, inDMRoom ? dmRooms : rooms, roomId);
+      sendMessage(
+        usersOnline.get(req.user.username)!,
+        data.content,
+        rooms,
+        roomId
+      );
       return;
     }
     if (action === 'joinRoom') {
@@ -92,6 +112,11 @@ function websocketHandler(ws: WebSocket, req: IReq) {
     }
     if (action === 'createDMRoom') {
       console.log('createDMRoom');
+      if (req.user.username === data.receiver) {
+        blockAction(ws, `You can't DM yourself!`);
+        ws.close(1000);
+        return;
+      }
       const room = createDMRoom(req.user, usersOnline, dmRooms, data.receiver);
       if (!room || room === roomId) return;
       joinDMRoom(ws, req.user, dmRooms, room);
@@ -127,9 +152,49 @@ function websocketHandler(ws: WebSocket, req: IReq) {
       sendTyping(req.user, data.typing, inDMRoom ? dmRooms : rooms, roomId);
       return;
     }
-    if (action === 'editProfile') {
-      console.log('editProfile');
-      updateUser(req.user, data.profile);
+    if (action === 'updateProfile') {
+      console.log('updateProfile');
+      if (data.profile.avatar && typeof data.profile.avatar === 'number') {
+        if (data.profile.avatar < 0 || data.profile.avatar > 13) {
+          blockAction(ws, 'Avatar not valid.');
+        }
+      }
+      if (data.profile.bio) {
+        if (typeof data.profile.bio !== 'string') {
+          blockAction(ws, 'Bio not valid.');
+        }
+      }
+      const newProfile = updateProfile(ws, req.user, data.profile);
+      if (!newProfile) {
+        return;
+      }
+      usersOnline.set(req.user.username, {
+        ws,
+        ...newProfile,
+      });
+      const usersOnlineMessage: IUsersOnlineMessage = {
+        type: 'usersOnline',
+        usersOnline: getIResponseUsersFromRoom(usersOnline),
+      };
+      const newUsersOnlineString = JSON.stringify(usersOnlineMessage);
+      allSockets.forEach((ws) => ws.send(newUsersOnlineString));
+      if (inDMRoom) {
+        dmRooms[roomId].users.set(req.user.username, { ws, ...newProfile });
+        const dmRoomUsersMessage: IRoomUsersMessage = {
+          type: 'roomUsers',
+          roomUsers: getIResponseUsersFromRoom(dmRooms[roomId].users),
+        };
+        const jsonString = JSON.stringify(dmRoomUsersMessage);
+        dmRooms[roomId].sockets.forEach((ws) => ws.send(jsonString));
+        return;
+      }
+      rooms[roomId].users.set(req.user.username, { ws, ...newProfile });
+      const roomUsersMessage: IRoomUsersMessage = {
+        type: 'roomUsers',
+        roomUsers: getIResponseUsersFromRoom(rooms[roomId].users),
+      };
+      const jsonString = JSON.stringify(roomUsersMessage);
+      rooms[roomId].sockets.forEach((ws) => ws.send(jsonString));
     }
   });
 
@@ -155,8 +220,5 @@ function websocketHandler(ws: WebSocket, req: IReq) {
 
 // check for rooms to delete every 15 minutes
 setInterval(() => cleanupDMRooms(dmRooms), 900000);
-
-// need the same interval for cleaning up dmRooms/rooms messages
-// X message buffer before saving to database
 
 export default websocketHandler;

@@ -10,6 +10,7 @@ import {
   IOnlineUser,
   IResponseUser,
   IContentMessage,
+  IProfileMessage,
 } from '../types/websocket/wsMessageTypes';
 import {
   IDMRoom,
@@ -19,7 +20,7 @@ import {
   IUsersOnlineMap,
 } from '../types/websocket/wsRoomTypes';
 import { User } from '../types/mongoose/User';
-import { IEditProfile } from '../types/websocket/wsActionTypes';
+import { IUpdateProfile } from '../types/websocket/wsActionTypes';
 
 function sendTyping(
   user: Express.User,
@@ -43,7 +44,7 @@ function sendTyping(
 }
 
 async function sendMessage(
-  user: Express.User,
+  user: IOnlineUser,
   content: string,
   rooms: IRooms,
   room: string
@@ -59,9 +60,9 @@ async function sendMessage(
   console.log(message);
   const jsonString = JSON.stringify(message);
   if (rooms[room].messages.length >= 90) {
-    rooms[room].messages.shift();
+    rooms[room].messages.pop();
   }
-  rooms[room].messages.push(message);
+  rooms[room].messages.splice(1, 0, message);
   rooms[room].sockets.forEach((ws) => {
     ws.send(jsonString);
   });
@@ -89,9 +90,9 @@ function sendDM(
     date: new Date(),
   };
   if (dmRooms[room].messages.length >= 90) {
-    dmRooms[room].messages.shift();
+    dmRooms[room].messages.pop();
   }
-  dmRooms[room].messages.push(dm);
+  dmRooms[room].messages.splice(1, 0, dm);
   // check for missing user (disconnect/reconnected scenario)
   if (dmRooms[room].sockets.size < 2) {
     const senderSocket = usersOnline.get(dmRooms[room].sender.username)?.ws;
@@ -206,9 +207,6 @@ function createDMRoom(
   dmRooms: IDMRooms,
   receiver: string
 ) {
-  if (user.username === receiver) {
-    return;
-  }
   const existingRoom = `${receiver} & ${user.username}`;
   if (dmRooms[existingRoom]) {
     return existingRoom;
@@ -280,28 +278,33 @@ function cleanupDMRooms(dmRooms: IDMRooms) {
   });
 }
 
-async function updateUser(
+function updateProfile(
+  ws: WebSocket,
   user: Express.User,
-  profile: IEditProfile['profile']
+  profile: IUpdateProfile['profile']
 ) {
-  try {
-    const newDetails = { avatar: 0, bio: '' };
-    if (profile.avatar && typeof profile.avatar === 'number') {
-      if (profile.avatar < 0 || profile.avatar > 13) {
-        throw new Error('Avatar not in range 0-13.');
-      }
-      newDetails.avatar = profile.avatar;
+  (async () => {
+    try {
+      await User.findByIdAndUpdate(user._id, {
+        avatar: profile.avatar,
+        bio: profile.bio,
+      }).exec();
+    } catch (err) {
+      console.log(err);
     }
-    if (profile.bio) {
-      if (typeof profile.bio !== 'string') {
-        throw new Error('Bio must be a string.');
-      }
-      newDetails.bio = profile.bio;
-    }
-    await User.findByIdAndUpdate(user._id, newDetails).exec();
-  } catch (err) {
-    return err;
-  }
+  })();
+  const newProfile = {
+    username: user.username,
+    avatar: profile.avatar,
+    bio: profile.bio,
+  };
+  const profileMessage: IProfileMessage = {
+    type: 'profile',
+    profile: newProfile,
+  };
+  const jsonString = JSON.stringify(profileMessage);
+  ws.send(jsonString);
+  return newProfile;
 }
 
 function getIResponseUsersFromRoom(
@@ -362,5 +365,5 @@ export {
   sendDMTabs,
   sendMessage,
   sendTyping,
-  updateUser,
+  updateProfile,
 };

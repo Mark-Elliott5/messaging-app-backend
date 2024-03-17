@@ -16,8 +16,8 @@ const guestSchema = new Schema<IGuest, Model<IGuest>>({
     minlength: 1,
     maxlength: 11,
   },
-  bio: { type: String, default: '' },
-  avatar: { type: Number, default: 0 },
+  bio: { type: String, default: '', maxlength: 900 },
+  avatar: { type: Number, default: 0, min: 0, max: 0 },
 });
 
 export const Guest = model('Guest', guestSchema);

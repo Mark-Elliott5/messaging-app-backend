@@ -14,7 +14,8 @@ const messageSchema = new Schema<IMessageModel, Model<IMessageModel>>({
   },
   user: {
     username: { type: String, required: true },
-    avatar: { type: Number, required: true },
+    avatar: { type: Number, required: true, default: 1, min: 0, max: 13 },
+    bio: { type: String, default: '', maxlength: 900 },
   },
   date: { type: Date, required: true },
   room: { type: String, required: true },

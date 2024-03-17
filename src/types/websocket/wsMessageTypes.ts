@@ -56,6 +56,11 @@ interface IMessageHistoryMessage {
   messageHistory: IContentMessage[];
 }
 
+interface IProfileMessage {
+  type: 'profile';
+  profile: IResponseUser;
+}
+
 export type {
   IResponseUser,
   IOnlineUser,
@@ -67,4 +72,5 @@ export type {
   IRoomUsersMessage,
   IUsersOnlineMessage,
   IMessageHistoryMessage,
+  IProfileMessage,
 };

@@ -23,11 +23,11 @@ interface ICreateDMRoom {
   receiver: string;
 }
 
-interface IEditProfile {
-  action: 'editProfile';
+interface IUpdateProfile {
+  action: 'updateProfile';
   profile: {
-    avatar?: number;
-    bio?: string;
+    avatar: number;
+    bio: string;
   };
 }
 
@@ -37,7 +37,7 @@ type UserAction =
   | IJoinRoom
   | IJoinDMRoom
   | ICreateDMRoom
-  | IEditProfile;
+  | IUpdateProfile;
 
 export type {
   UserAction,
@@ -46,5 +46,5 @@ export type {
   ICreateDMRoom,
   IJoinDMRoom,
   ITypingIndication,
-  IEditProfile,
+  IUpdateProfile,
 };
