@@ -21,11 +21,12 @@ import {
   cleanupDMRooms,
   removeFromRoom,
   updateUser,
+  populateRoomHistory,
 } from '../controllers/websocketFunctions';
 
 const allSockets: IAllSockets = new Set();
 
-const rooms: IRooms = {};
+const rooms: IRooms = populateRoomHistory();
 
 const dmRooms: IDMRooms = {};
 
@@ -34,6 +35,7 @@ const usersOnline: IUsersOnlineMap = new Map();
 function websocketHandler(ws: WebSocket, req: IReq) {
   if (!req.user) {
     blockAction(ws, 'User not logged in.');
+    ws.close(1000);
     return;
   }
   if (usersOnline.has(req.user.username)) {
@@ -101,6 +103,18 @@ function websocketHandler(ws: WebSocket, req: IReq) {
     }
     if (action === 'joinDMRoom') {
       console.log('joinDMRoom');
+      // make sure request is not coming from malicious user that is not in the DM
+      if (!dmRooms[data.room]) {
+        blockAction(ws, 'Room does not exist.');
+        return;
+      }
+      if (
+        dmRooms[data.room].sender.username !== req.user.username &&
+        dmRooms[data.room].receiver.username !== req.user.username
+      ) {
+        blockAction(ws, 'Access denied');
+        return; // maybe send 'error' message here, have component display it
+      }
       joinDMRoom(ws, req.user, dmRooms, data.room);
       sendTyping(req.user, false, inDMRoom ? dmRooms : rooms, roomId);
       removeFromRoom(ws, req.user, inDMRoom ? dmRooms : rooms, roomId);

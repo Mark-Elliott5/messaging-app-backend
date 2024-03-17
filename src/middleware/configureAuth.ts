@@ -28,7 +28,7 @@ const configureAuthentication = (app: Application) => {
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
-        const user = await User.findOne({ username });
+        const user = await User.findOne({ username }).exec();
         if (!user) {
           return done(null, false);
         }
@@ -50,7 +50,7 @@ const configureAuthentication = (app: Application) => {
         try {
           const guest = await Guest.findOne({
             username: req.body.username,
-          });
+          }).exec();
           if (!guest) {
             return done(null, false);
           }
@@ -68,9 +68,9 @@ const configureAuthentication = (app: Application) => {
 
   passport.deserializeUser(async (_id, done) => {
     try {
-      const user = await User.findById(_id);
+      const user = await User.findById(_id).exec();
       if (!user) {
-        const guest = await Guest.findById(_id);
+        const guest = await Guest.findById(_id).exec();
         return done(null, guest);
       }
       return done(null, user);

@@ -12,7 +12,9 @@ import {
   IContentMessage,
 } from '../types/websocket/wsMessageTypes';
 import {
+  IDMRoom,
   IDMRooms,
+  IRoom,
   IRooms,
   IUsersOnlineMap,
 } from '../types/websocket/wsRoomTypes';
@@ -56,6 +58,9 @@ async function sendMessage(
   };
   console.log(message);
   const jsonString = JSON.stringify(message);
+  if (rooms[room].messages.length >= 90) {
+    rooms[room].messages.shift();
+  }
   rooms[room].messages.push(message);
   rooms[room].sockets.forEach((ws) => {
     ws.send(jsonString);
@@ -83,6 +88,9 @@ function sendDM(
     user: { username, avatar, bio },
     date: new Date(),
   };
+  if (dmRooms[room].messages.length >= 90) {
+    dmRooms[room].messages.shift();
+  }
   dmRooms[room].messages.push(dm);
   // check for missing user (disconnect/reconnected scenario)
   if (dmRooms[room].sockets.size < 2) {
@@ -130,7 +138,6 @@ function blockAction(ws: WebSocket, message: string) {
   };
   const jsonString = JSON.stringify(blockMessage);
   ws.send(jsonString);
-  ws.close(1000);
 }
 
 function joinRoom(
@@ -141,7 +148,12 @@ function joinRoom(
   room: string
 ) {
   if (!rooms[room]) {
-    rooms[room] = { sockets: new Set(), users: new Map(), messages: [] };
+    const newRoom: IRoom = {
+      sockets: new Set(),
+      users: new Map(),
+      messages: [],
+    };
+    rooms[room] = newRoom;
   }
   rooms[room].sockets.add(ws);
   rooms[room].users.set(user.username, usersOnline.get(user.username)!);
@@ -208,13 +220,14 @@ function createDMRoom(
       return;
     }
     const sender = usersOnline.get(user.username)!;
-    dmRooms[room] = {
+    const newRoom: IDMRoom = {
       sockets: new Set(),
       users: new Map(),
       messages: [],
       sender,
       receiver: receiverOnline,
     };
+    dmRooms[room] = newRoom;
   }
   return room;
 }
@@ -225,28 +238,6 @@ function joinDMRoom(
   dmRooms: IDMRooms,
   room: string
 ) {
-  if (!dmRooms[room]) {
-    const blockedMessage: IBlockedMessage = {
-      type: 'blocked',
-      message: 'Room does not exist.',
-    };
-    const jsonString = JSON.stringify(blockedMessage);
-    ws.send(jsonString);
-    return;
-  }
-  // make sure request is not coming from malicious user that is not in the DM
-  if (
-    dmRooms[room].sender.username !== user.username &&
-    dmRooms[room].receiver.username !== user.username
-  ) {
-    const blockedMessage: IBlockedMessage = {
-      type: 'blocked',
-      message: 'Access denied.',
-    };
-    const jsonString = JSON.stringify(blockedMessage);
-    ws.send(jsonString);
-    return; // maybe send 'error' message here, have component display it
-  }
   const { username, avatar, bio }: IResponseUser = user;
   dmRooms[room].users.set(username, {
     username,
@@ -307,7 +298,7 @@ async function updateUser(
       }
       newDetails.bio = profile.bio;
     }
-    await User.findByIdAndUpdate(user._id, newDetails);
+    await User.findByIdAndUpdate(user._id, newDetails).exec();
   } catch (err) {
     return err;
   }
@@ -323,6 +314,41 @@ function getIResponseUsersFromRoom(
   return newUsers;
 }
 
+// room functions
+
+function populateRoomHistory() {
+  const roomNames = [
+    'General',
+    'Gaming',
+    'Music',
+    'Sports',
+    'Computer Science',
+  ];
+  const generateRoom = async (room: string) => {
+    const newRoom: IRoom = {
+      users: new Map(),
+      sockets: new Set(),
+      messages: [],
+    };
+    try {
+      const history = await Message.find({ room })
+        .sort({ date: -1 })
+        .limit(90)
+        .exec();
+      newRoom.messages = history;
+    } catch (err) {
+      console.log(err);
+    }
+    return newRoom;
+  };
+  const rooms: IRooms = {};
+  roomNames.forEach(async (room) => {
+    const populatedRoom = await generateRoom(room);
+    rooms[room] = populatedRoom;
+  });
+  return rooms;
+}
+
 export {
   blockAction,
   cleanupDMRooms,
@@ -330,6 +356,7 @@ export {
   getIResponseUsersFromRoom,
   joinDMRoom,
   joinRoom,
+  populateRoomHistory,
   removeFromRoom,
   sendDM,
   sendDMTabs,
