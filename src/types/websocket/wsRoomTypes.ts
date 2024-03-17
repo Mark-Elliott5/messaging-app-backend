@@ -1,6 +1,5 @@
 import WebSocket from 'ws';
-import { IMessageModel } from '../mongoose/Messages';
-import { IOnlineUser } from './wsMessageTypes';
+import { IContentMessage, IOnlineUser } from './wsMessageTypes';
 
 interface IDMRooms {
   [key: string]: {
@@ -8,7 +7,7 @@ interface IDMRooms {
     sockets: Set<WebSocket>;
     sender: IOnlineUser;
     receiver: IOnlineUser;
-    messages: IMessageModel[];
+    messages: IContentMessage[];
   };
 }
 
@@ -16,7 +15,7 @@ interface IRooms {
   [key: string]: {
     users: Map<string, IOnlineUser>;
     sockets: Set<WebSocket>;
-    messages: IMessageModel[];
+    messages: IContentMessage[];
   };
 }
 

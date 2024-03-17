@@ -1,4 +1,3 @@
-import { IMessageModel } from '../mongoose/Messages';
 import WebSocket from 'ws';
 
 // responses
@@ -13,7 +12,7 @@ interface IOnlineUser extends IResponseUser {
   ws: WebSocket;
 }
 
-interface IMessageMessage {
+interface IContentMessage {
   type: 'message';
   content: string;
   user: IResponseUser;
@@ -54,13 +53,13 @@ interface IUsersOnlineMessage {
 
 interface IMessageHistoryMessage {
   type: 'messageHistory';
-  messageHistory: IMessageModel[];
+  messageHistory: IContentMessage[];
 }
 
 export type {
   IResponseUser,
   IOnlineUser,
-  IMessageMessage,
+  IContentMessage,
   IDMTabMessage,
   ITypingMessage,
   IBlockedMessage,

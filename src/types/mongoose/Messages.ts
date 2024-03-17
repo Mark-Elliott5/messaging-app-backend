@@ -1,7 +1,7 @@
 import { Schema, Model, Types, model } from 'mongoose';
-import { IMessageMessage } from '../websocket/wsMessageTypes';
+import { IContentMessage } from '../websocket/wsMessageTypes';
 
-export interface IMessageModel extends IMessageMessage {
+export interface IMessageModel extends IContentMessage {
   room: string;
 }
 

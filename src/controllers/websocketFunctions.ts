@@ -9,6 +9,7 @@ import {
   IMessageHistoryMessage,
   IOnlineUser,
   IResponseUser,
+  IContentMessage,
 } from '../types/websocket/wsMessageTypes';
 import {
   IDMRooms,
@@ -24,7 +25,7 @@ function sendTyping(
   rooms: IDMRooms | IRooms,
   room: string
 ) {
-  const { username, avatar, bio } = user;
+  const { username, avatar, bio }: IResponseUser = user;
   const typingMessage: ITypingMessage = {
     type: 'typing',
     typing,
@@ -46,13 +47,12 @@ async function sendMessage(
   room: string
 ) {
   // making sure to not send user.password accidentally
-  const { username, avatar, bio } = user;
-  const message: IMessageModel = {
+  const { username, avatar, bio }: IResponseUser = user;
+  const message: IContentMessage = {
     type: 'message',
     content,
     user: { username, avatar, bio },
     date: new Date(),
-    room,
   };
   console.log(message);
   const jsonString = JSON.stringify(message);
@@ -61,7 +61,8 @@ async function sendMessage(
     ws.send(jsonString);
   });
   try {
-    await Message.create(message);
+    const dbMessage: IMessageModel = Object.assign({ room }, message);
+    await Message.create(dbMessage);
   } catch (err) {
     console.log(err);
   }
@@ -75,13 +76,12 @@ function sendDM(
   dmRooms: IDMRooms,
   room: string
 ) {
-  const { username, avatar, bio } = user;
-  const dm: IMessageModel = {
+  const { username, avatar, bio }: IResponseUser = user;
+  const dm: IContentMessage = {
     type: 'message',
     content,
     user: { username, avatar, bio },
     date: new Date(),
-    room,
   };
   dmRooms[room].messages.push(dm);
   // check for missing user (disconnect/reconnected scenario)
@@ -247,7 +247,7 @@ function joinDMRoom(
     ws.send(jsonString);
     return; // maybe send 'error' message here, have component display it
   }
-  const { username, avatar, bio } = user;
+  const { username, avatar, bio }: IResponseUser = user;
   dmRooms[room].users.set(username, {
     username,
     avatar,
