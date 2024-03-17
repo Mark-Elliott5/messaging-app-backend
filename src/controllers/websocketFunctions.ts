@@ -21,6 +21,9 @@ import {
 } from '../types/websocket/wsRoomTypes';
 import { User } from '../types/mongoose/User';
 import { IUpdateProfile } from '../types/websocket/wsActionTypes';
+import BadWordsFilter from 'bad-words';
+
+const filter = new BadWordsFilter({ placeHolder: '*' });
 
 function sendTyping(
   user: Express.User,
@@ -53,7 +56,7 @@ async function sendMessage(
   const { username, avatar, bio }: IResponseUser = user;
   const message: IContentMessage = {
     type: 'message',
-    content,
+    content: filter.clean(content),
     user: { username, avatar, bio },
     date: new Date(),
   };

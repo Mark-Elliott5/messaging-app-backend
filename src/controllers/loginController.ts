@@ -3,6 +3,9 @@ import { INext, IReq, IRes } from '../types/express';
 import { User } from '../types/mongoose/User';
 import bcrypt from 'bcrypt';
 import { Guest } from '../types/mongoose/Guest';
+import BadWordsFilter from 'bad-words';
+
+const filter = new BadWordsFilter({ placeHolder: '*' });
 
 const loginHandler = (
   req: IReq<{ username: string; password: string }>,
@@ -37,6 +40,9 @@ const registerHandler = async (
 ) => {
   const { username, password } = req.body;
   try {
+    if (filter.isProfane(username)) {
+      throw new Error('Username invalid.');
+    }
     const hashedPassword = await bcrypt.hash(password, 10);
     await User.create({
       username,
