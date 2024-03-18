@@ -1,3 +1,4 @@
+import { Types } from 'mongoose';
 import WebSocket from 'ws';
 
 // responses
@@ -10,13 +11,16 @@ interface IResponseUser {
 
 interface IOnlineUser extends IResponseUser {
   ws: WebSocket;
+  _id: Types.ObjectId;
+  guest: boolean;
 }
 
 interface IContentMessage {
   type: 'message';
   content: string;
-  user: IResponseUser;
+  user: IResponseUser | Types.ObjectId;
   date: Date; // will be stringified on frontend
+  guest: boolean;
 }
 
 interface IDMTabMessage {

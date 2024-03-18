@@ -69,11 +69,13 @@ const configureAuthentication = (app: Application) => {
   passport.deserializeUser(async (_id, done) => {
     try {
       const user = await User.findById(_id).exec();
-      if (!user) {
-        const guest = await Guest.findById(_id).exec();
+      if (user) {
+        return done(null, user);
+      }
+      const guest = await Guest.findById(_id).exec();
+      if (guest) {
         return done(null, guest);
       }
-      return done(null, user);
     } catch (err) {
       return done(err);
     }

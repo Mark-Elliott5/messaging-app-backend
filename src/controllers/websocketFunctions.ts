@@ -26,7 +26,7 @@ import BadWordsFilter from 'bad-words';
 const filter = new BadWordsFilter({ placeHolder: '*' });
 
 function sendTyping(
-  user: Express.User,
+  user: IOnlineUser,
   typing: boolean,
   rooms: IDMRooms | IRooms,
   room: string
@@ -53,33 +53,40 @@ async function sendMessage(
   room: string
 ) {
   // making sure to not send user.password accidentally
-  const { username, avatar, bio }: IResponseUser = user;
-  const message: IContentMessage = {
+  const { username, avatar, bio, _id } = user;
+  const messageResponse: IContentMessage = {
     type: 'message',
     content: filter.clean(content),
-    user: { username, avatar, bio },
+    user: _id,
     date: new Date(),
+    guest: user.guest,
   };
-  console.log(message);
-  const jsonString = JSON.stringify(message);
-  if (rooms[room].messages.length >= 90) {
-    rooms[room].messages.pop();
-  }
-  rooms[room].messages.splice(1, 0, message);
-  rooms[room].sockets.forEach((ws) => {
-    ws.send(jsonString);
-  });
+  console.log(messageResponse);
   try {
-    const dbMessage: IMessageModel = Object.assign({ room }, message);
+    const dbMessage: IMessageModel = {
+      ...messageResponse,
+      room,
+      guest: user.guest,
+    };
     await Message.create(dbMessage);
+    messageResponse.user = { username, avatar, bio };
+    console.log(messageResponse.user);
+    if (rooms[room].messages.length >= 90) {
+      rooms[room].messages.pop();
+    }
+    rooms[room].messages.splice(0, 0, messageResponse);
+    const jsonString = JSON.stringify(messageResponse);
+    rooms[room].sockets.forEach((ws) => {
+      ws.send(jsonString);
+    });
+    console.log(messageResponse);
   } catch (err) {
     console.log(err);
   }
-  return;
 }
 
 function sendDM(
-  user: Express.User,
+  user: IOnlineUser,
   content: string,
   usersOnline: IUsersOnlineMap,
   dmRooms: IDMRooms,
@@ -91,6 +98,7 @@ function sendDM(
     content,
     user: { username, avatar, bio },
     date: new Date(),
+    guest: user.guest,
   };
   if (dmRooms[room].messages.length >= 90) {
     dmRooms[room].messages.pop();
@@ -146,7 +154,7 @@ function blockAction(ws: WebSocket, message: string) {
 
 function joinRoom(
   ws: WebSocket,
-  user: Express.User,
+  user: IOnlineUser,
   usersOnline: IUsersOnlineMap,
   rooms: IRooms,
   room: string
@@ -185,7 +193,7 @@ function joinRoom(
 
 function removeFromRoom(
   ws: WebSocket,
-  user: Express.User,
+  user: IOnlineUser,
   rooms: IDMRooms | IRooms,
   room: string
 ) {
@@ -205,7 +213,7 @@ function removeFromRoom(
 }
 
 function createDMRoom(
-  user: Express.User,
+  user: IOnlineUser,
   usersOnline: IUsersOnlineMap,
   dmRooms: IDMRooms,
   receiver: string
@@ -235,17 +243,12 @@ function createDMRoom(
 
 function joinDMRoom(
   ws: WebSocket,
-  user: Express.User,
+  user: IOnlineUser,
   dmRooms: IDMRooms,
   room: string
 ) {
-  const { username, avatar, bio }: IResponseUser = user;
-  dmRooms[room].users.set(username, {
-    username,
-    avatar,
-    bio,
-    ws,
-  });
+  const { username } = user;
+  dmRooms[room].users.set(username, user);
   dmRooms[room].sockets.add(ws);
   const joinRoomMessage: IJoinRoomMessage = {
     type: 'joinRoom',
@@ -283,7 +286,7 @@ function cleanupDMRooms(dmRooms: IDMRooms) {
 
 function updateProfile(
   ws: WebSocket,
-  user: Express.User,
+  user: IOnlineUser,
   profile: IUpdateProfile['profile']
 ) {
   (async () => {
@@ -338,10 +341,12 @@ function populateRoomHistory() {
     };
     try {
       const history = await Message.find({ room })
+        .populate({ path: 'user', select: 'username avatar bio' })
         .sort({ date: -1 })
         .limit(90)
         .exec();
       newRoom.messages = history;
+      console.log(history);
     } catch (err) {
       console.log(err);
     }

@@ -6,6 +6,7 @@ export interface IUser {
   password: string;
   bio: string;
   avatar: number;
+  guest: boolean;
 }
 
 const userSchema = new Schema<IUser, Model<IUser>>({
@@ -19,6 +20,7 @@ const userSchema = new Schema<IUser, Model<IUser>>({
   password: { type: String, required: true, minlength: 4 },
   bio: { type: String, default: '', maxlength: 900 },
   avatar: { type: Number, default: 1, min: 0, max: 13 },
+  guest: { type: Boolean, required: true, default: false, immutable: true },
 });
 
 export const User = model('User', userSchema);

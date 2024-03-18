@@ -1,8 +1,11 @@
 import { Schema, Model, Types, model } from 'mongoose';
 import { IContentMessage } from '../websocket/wsMessageTypes';
+import { Guest } from './Guest';
+import { User } from './User';
 
 export interface IMessageModel extends IContentMessage {
   room: string;
+  guest: boolean;
 }
 
 const messageSchema = new Schema<IMessageModel, Model<IMessageModel>>({
@@ -13,12 +16,14 @@ const messageSchema = new Schema<IMessageModel, Model<IMessageModel>>({
     maxlength: 900,
   },
   user: {
-    username: { type: String, required: true },
-    avatar: { type: Number, required: true, default: 1, min: 0, max: 13 },
-    bio: { type: String, default: '', maxlength: 900 },
+    type: Schema.Types.ObjectId,
+    ref: function () {
+      return this.guest === false ? 'User' : 'Guest';
+    },
   },
   date: { type: Date, required: true },
   room: { type: String, required: true },
+  guest: { type: Boolean },
 });
 
 export const Message = model('Message', messageSchema);

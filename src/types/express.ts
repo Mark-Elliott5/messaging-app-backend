@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { IUser } from './mongoose/User';
+
 declare global {
   namespace Express {
     interface User extends IUser {}
