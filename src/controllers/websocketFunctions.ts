@@ -56,12 +56,18 @@ async function sendMessage(
   const { username, avatar, bio, _id } = user;
   const messageResponse: IContentMessage = {
     type: 'message',
-    content: filter.clean(content),
+    content: (() => {
+      try {
+        return filter.clean(content);
+      } catch (err) {
+        console.log(err);
+        return content;
+      }
+    })(),
     user: _id,
     date: new Date(),
     guest: user.guest,
   };
-  console.log(messageResponse);
   try {
     const dbMessage: IMessageModel = {
       ...messageResponse,
@@ -70,7 +76,6 @@ async function sendMessage(
     };
     await Message.create(dbMessage);
     messageResponse.user = { username, avatar, bio };
-    console.log(messageResponse.user);
     if (rooms[room].messages.length >= 90) {
       rooms[room].messages.pop();
     }
@@ -79,7 +84,6 @@ async function sendMessage(
     rooms[room].sockets.forEach((ws) => {
       ws.send(jsonString);
     });
-    console.log(messageResponse);
   } catch (err) {
     console.log(err);
   }
@@ -138,7 +142,6 @@ function sendDMTabs(dmRooms: IDMRooms, room: string) {
     },
     room,
   };
-  console.log('sendingTabs');
   dmRooms[room].sender.ws.send(JSON.stringify(senderTab));
   dmRooms[room].receiver.ws.send(JSON.stringify(receiverTab));
 }
@@ -270,20 +273,6 @@ function joinDMRoom(
   });
 }
 
-function cleanupDMRooms(dmRooms: IDMRooms) {
-  // check dmRooms for time last message was sent, then delete room
-  Object.keys(dmRooms).forEach((room) => {
-    const { messages } = dmRooms[room];
-    const lastMessage = messages[messages.length - 1].date;
-    const moment = new Date();
-    const minutesPassed =
-      (moment.getMilliseconds() - lastMessage.getMilliseconds()) / (1000 * 60);
-    if (minutesPassed >= 15) {
-      delete dmRooms[room];
-    }
-  });
-}
-
 function updateProfile(
   ws: WebSocket,
   user: IOnlineUser,
@@ -319,7 +308,6 @@ function getIResponseUsersFromRoom(
   const newUsers: IResponseUser[] = Array.from(users.values()).map(
     ({ ws, ...data }) => data
   );
-  console.log(newUsers);
   return newUsers;
 }
 
@@ -346,7 +334,6 @@ function populateRoomHistory() {
         .limit(90)
         .exec();
       newRoom.messages = history;
-      console.log(history);
     } catch (err) {
       console.log(err);
     }
@@ -358,6 +345,20 @@ function populateRoomHistory() {
     rooms[room] = populatedRoom;
   });
   return rooms;
+}
+
+function cleanupDMRooms(dmRooms: IDMRooms) {
+  // check dmRooms for time last message was sent, then delete room
+  Object.keys(dmRooms).forEach((room) => {
+    const { messages } = dmRooms[room];
+    const lastMessage = messages[messages.length - 1].date;
+    const moment = new Date();
+    const minutesPassed =
+      (moment.getMilliseconds() - lastMessage.getMilliseconds()) / (1000 * 60);
+    if (minutesPassed >= 15 && !dmRooms[room].sockets.size) {
+      delete dmRooms[room];
+    }
+  });
 }
 
 export {

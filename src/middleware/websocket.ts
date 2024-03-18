@@ -42,8 +42,6 @@ function websocketHandler(ws: WebSocket, req: IReq) {
     ws.close(1000);
     return;
   }
-  console.log(req);
-  console.log(req.user);
   if (usersOnline.has(req.user.username)) {
     usersOnline.get(req.user.username)!.ws.close(1000);
   }
