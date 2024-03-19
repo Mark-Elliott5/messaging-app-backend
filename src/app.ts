@@ -35,12 +35,12 @@ const connectToDB = async () => {
 };
 connectToDB();
 
-// const limiter = rateLimit({
-//   windowMs: 10 * 1000,
-//   max: 200,
-// });
+const limiter = rateLimit({
+  windowMs: 10 * 1000,
+  max: 200,
+});
 
-// app.use(limiter);
+app.use(limiter);
 
 app.use(cookieParser());
 app.use(logger('dev'));

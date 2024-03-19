@@ -110,7 +110,7 @@ function sendDM(
   if (dmRooms[room].messages.length >= 90) {
     dmRooms[room].messages.pop();
   }
-  dmRooms[room].messages.splice(1, 0, dm);
+  dmRooms[room].messages.splice(0, 0, dm);
   // check for missing user (disconnect/reconnected scenario)
   if (dmRooms[room].sockets.size < 2) {
     const senderSocket = usersOnline.get(dmRooms[room].sender.username)?.ws;
@@ -314,6 +314,28 @@ function getIResponseUsersFromRoom(
   return newUsers;
 }
 
+function handleClose(
+  ws: WebSocket,
+  allSockets: IAllSockets,
+  user: IOnlineUser,
+  usersOnline: IUsersOnlineMap,
+  rooms: IDMRooms | IRooms,
+  roomId: string
+) {
+  sendTyping(user, false, rooms, roomId);
+  usersOnline.delete(user.username);
+  allSockets.delete(ws);
+  const usersOnlineMessage: IUsersOnlineMessage = {
+    type: 'usersOnline',
+    usersOnline: getIResponseUsersFromRoom(usersOnline),
+  };
+  const jsonString = JSON.stringify(usersOnlineMessage);
+  allSockets.forEach((ws) => {
+    ws.send(jsonString);
+  });
+  removeFromRoom(ws, user, rooms, roomId);
+}
+
 // room functions
 
 function populateRoomHistory() {
@@ -362,28 +384,6 @@ function cleanupDMRooms(dmRooms: IDMRooms) {
       delete dmRooms[room];
     }
   });
-}
-
-function handleClose(
-  ws: WebSocket,
-  allSockets: IAllSockets,
-  user: IOnlineUser,
-  usersOnline: IUsersOnlineMap,
-  rooms: IDMRooms | IRooms,
-  roomId: string
-) {
-  sendTyping(user, false, rooms, roomId);
-  usersOnline.delete(user.username);
-  allSockets.delete(ws);
-  const usersOnlineMessage: IUsersOnlineMessage = {
-    type: 'usersOnline',
-    usersOnline: getIResponseUsersFromRoom(usersOnline),
-  };
-  const jsonString = JSON.stringify(usersOnlineMessage);
-  allSockets.forEach((ws) => {
-    ws.send(jsonString);
-  });
-  removeFromRoom(ws, user, rooms, roomId);
 }
 
 export {

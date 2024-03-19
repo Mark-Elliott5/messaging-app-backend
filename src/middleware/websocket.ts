@@ -62,8 +62,8 @@ function websocketHandler(ws: WebSocket, req: IReq, next: INext) {
     _id: req.user._id,
     ws,
   });
-
-  const getUser = () => usersOnline.get(req.user!.username)!;
+  const name = req.user.username;
+  const getUser = () => usersOnline.get(name)!;
 
   joinRoom(ws, getUser(), usersOnline, rooms, roomId);
   const usersOnlineMessage: IUsersOnlineMessage = {
@@ -144,7 +144,7 @@ function websocketHandler(ws: WebSocket, req: IReq, next: INext) {
         dmRooms[data.room].receiver.username !== req.user.username
       ) {
         blockAction(ws, 'Access denied');
-        return; // maybe send 'error' message here, have component display it
+        return;
       }
       joinDMRoom(ws, user, dmRooms, data.room);
       sendTyping(user, false, inDMRoom ? dmRooms : rooms, roomId);
@@ -234,9 +234,6 @@ function websocketHandler(ws: WebSocket, req: IReq, next: INext) {
   });
 
   ws.on('close', () => {
-    if (!req.user) {
-      return;
-    }
     const user = getUser();
     handleClose(
       ws,
