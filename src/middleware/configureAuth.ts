@@ -4,7 +4,7 @@ import CustomStrategy from 'passport-custom';
 import { Strategy as LocalStrategy } from 'passport-local';
 import 'dotenv/config';
 import session from 'express-session';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { User } from '../types/mongoose/User';
 import { Guest } from '../types/mongoose/Guest';
 import { IReq } from '../types/express';

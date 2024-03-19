@@ -1,7 +1,7 @@
 import passport, { AuthenticateCallback } from 'passport';
 import { INext, IReq, IRes } from '../types/express';
 import { User } from '../types/mongoose/User';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { Guest } from '../types/mongoose/Guest';
 import BadWordsFilter from 'bad-words';
 
