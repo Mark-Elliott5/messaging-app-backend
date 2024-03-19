@@ -54,7 +54,7 @@ app.post('/register', registerHandler, loginHandler);
 
 app.post('/guest', guestHandler);
 
-app.get('/', (req: IReq, res: IRes) => {
+app.get('/', (req: IReq, res: IRes, next: INext) => {
   req.user ? res.cookie('loggedIn', 'true') : res.clearCookie('loggedIn');
   res.sendFile(path.join(__dirname, 'build', 'app.html'));
 });

@@ -11,8 +11,11 @@ import {
   IResponseUser,
   IContentMessage,
   IProfileMessage,
+  IUsersOnlineMessage,
+  ILoggedOutMessage,
 } from '../types/websocket/wsMessageTypes';
 import {
+  IAllSockets,
   IDMRoom,
   IDMRooms,
   IRoom,
@@ -361,6 +364,28 @@ function cleanupDMRooms(dmRooms: IDMRooms) {
   });
 }
 
+function handleClose(
+  ws: WebSocket,
+  allSockets: IAllSockets,
+  user: IOnlineUser,
+  usersOnline: IUsersOnlineMap,
+  rooms: IDMRooms | IRooms,
+  roomId: string
+) {
+  sendTyping(user, false, rooms, roomId);
+  usersOnline.delete(user.username);
+  allSockets.delete(ws);
+  const usersOnlineMessage: IUsersOnlineMessage = {
+    type: 'usersOnline',
+    usersOnline: getIResponseUsersFromRoom(usersOnline),
+  };
+  const jsonString = JSON.stringify(usersOnlineMessage);
+  allSockets.forEach((ws) => {
+    ws.send(jsonString);
+  });
+  removeFromRoom(ws, user, rooms, roomId);
+}
+
 export {
   blockAction,
   cleanupDMRooms,
@@ -375,4 +400,5 @@ export {
   sendMessage,
   sendTyping,
   updateProfile,
+  handleClose,
 };

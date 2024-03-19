@@ -1,7 +1,8 @@
 import WebSocket from 'ws';
-import { IReq } from '../types/express';
+import { INext, IReq, IRes } from '../types/express';
 import { UserAction } from '../types/websocket/wsActionTypes';
 import {
+  ILoggedOutMessage,
   IProfileMessage,
   IRoomUsersMessage,
   IUsersOnlineMessage,
@@ -26,6 +27,7 @@ import {
   removeFromRoom,
   updateProfile,
   populateRoomHistory,
+  handleClose,
 } from '../controllers/websocketFunctions';
 
 const allSockets: IAllSockets = new Set();
@@ -36,7 +38,7 @@ const dmRooms: IDMRooms = {};
 
 const usersOnline: IUsersOnlineMap = new Map();
 
-function websocketHandler(ws: WebSocket, req: IReq) {
+function websocketHandler(ws: WebSocket, req: IReq, next: INext) {
   if (!req.user) {
     blockAction(ws, 'User not logged in.');
     ws.close(1000);
@@ -119,7 +121,6 @@ function websocketHandler(ws: WebSocket, req: IReq) {
       console.log('createDMRoom');
       if (req.user.username === data.receiver) {
         blockAction(ws, `You can't DM yourself!`);
-        ws.close(1000);
         return;
       }
       const room = createDMRoom(user, usersOnline, dmRooms, data.receiver);
@@ -213,6 +214,23 @@ function websocketHandler(ws: WebSocket, req: IReq) {
       const jsonString = JSON.stringify(roomUsersMessage);
       rooms[roomId].sockets.forEach((ws) => ws.send(jsonString));
     }
+    if (data.action === 'logout') {
+      const logoutMessage: ILoggedOutMessage = {
+        type: 'loggedOut',
+      };
+      const jsonLogoutMessage = JSON.stringify(logoutMessage);
+      ws.send(jsonLogoutMessage);
+      ws.close();
+      req.logOut((err) => {
+        next(err);
+      });
+      req.session.destroy(function (err) {
+        if (err) {
+          console.log(err);
+        }
+      });
+      return;
+    }
   });
 
   ws.on('close', () => {
@@ -220,18 +238,14 @@ function websocketHandler(ws: WebSocket, req: IReq) {
       return;
     }
     const user = getUser();
-    sendTyping(user, false, inDMRoom ? dmRooms : rooms, roomId);
-    usersOnline.delete(user.username);
-    allSockets.delete(ws);
-    const usersOnlineMessage: IUsersOnlineMessage = {
-      type: 'usersOnline',
-      usersOnline: getIResponseUsersFromRoom(usersOnline),
-    };
-    const jsonString = JSON.stringify(usersOnlineMessage);
-    allSockets.forEach((ws) => {
-      ws.send(jsonString);
-    });
-    removeFromRoom(ws, user, inDMRoom ? dmRooms : rooms, roomId);
+    handleClose(
+      ws,
+      allSockets,
+      user,
+      usersOnline,
+      inDMRoom ? dmRooms : rooms,
+      roomId
+    );
     return;
   });
 }

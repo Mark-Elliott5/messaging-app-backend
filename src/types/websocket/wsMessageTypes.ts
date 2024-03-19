@@ -65,6 +65,10 @@ interface IProfileMessage {
   profile: IResponseUser;
 }
 
+interface ILoggedOutMessage {
+  type: 'loggedOut';
+}
+
 export type {
   IResponseUser,
   IOnlineUser,
@@ -77,4 +81,5 @@ export type {
   IUsersOnlineMessage,
   IMessageHistoryMessage,
   IProfileMessage,
+  ILoggedOutMessage,
 };
