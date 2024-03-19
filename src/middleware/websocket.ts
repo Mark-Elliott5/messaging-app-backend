@@ -39,6 +39,8 @@ const dmRooms: IDMRooms = {};
 const usersOnline: IUsersOnlineMap = new Map();
 
 function websocketHandler(ws: WebSocket, req: IReq, next: INext) {
+  console.log('Here I am!');
+  console.log(req);
   if (!req.user) {
     blockAction(ws, 'User not logged in.');
     ws.close(1000);
@@ -101,7 +103,7 @@ function websocketHandler(ws: WebSocket, req: IReq, next: INext) {
       if (inDMRoom) {
         console.log('inDmRoom');
         sendDM(user, data.content, usersOnline, dmRooms, roomId);
-        sendDMTabs(dmRooms, roomId);
+        sendDMTabs(usersOnline, dmRooms, roomId);
         return;
       }
       console.log('sendMessage');

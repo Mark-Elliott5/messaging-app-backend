@@ -21,7 +21,7 @@ const app = expressWs(express()).app;
 
 configureAuthentication(app);
 
-// app.set('trust proxy', true);
+app.set('trust proxy', true);
 
 mongoose.set('strictQuery', true);
 

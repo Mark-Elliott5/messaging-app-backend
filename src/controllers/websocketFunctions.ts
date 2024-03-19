@@ -124,7 +124,11 @@ function sendDM(
   });
 }
 
-function sendDMTabs(dmRooms: IDMRooms, room: string) {
+function sendDMTabs(
+  usersOnline: IUsersOnlineMap,
+  dmRooms: IDMRooms,
+  room: string
+) {
   const receiver = dmRooms[room].receiver;
   const sender = dmRooms[room].sender;
   const senderTab: IDMTabMessage = {
@@ -145,8 +149,8 @@ function sendDMTabs(dmRooms: IDMRooms, room: string) {
     },
     room,
   };
-  dmRooms[room].sender.ws.send(JSON.stringify(senderTab));
-  dmRooms[room].receiver.ws.send(JSON.stringify(receiverTab));
+  usersOnline.get(sender.username)?.ws.send(JSON.stringify(senderTab));
+  usersOnline.get(receiver.username)?.ws.send(JSON.stringify(receiverTab));
 }
 
 function blockAction(ws: WebSocket, message: string) {

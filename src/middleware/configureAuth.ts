@@ -4,6 +4,7 @@ import CustomStrategy from 'passport-custom';
 import { Strategy as LocalStrategy } from 'passport-local';
 import 'dotenv/config';
 import session from 'express-session';
+import MongoStore from 'connect-mongo';
 import bcrypt from 'bcryptjs';
 import { User } from '../types/mongoose/User';
 import { Guest } from '../types/mongoose/Guest';
@@ -16,8 +17,19 @@ const configureAuthentication = (app: Application) => {
       throw new Error('.env secret key not found! Sessions need a secret key.');
     })();
 
+  const connection =
+    process.env.MONGODB_URI ??
+    (() => {
+      throw new Error(
+        'connection string not found! Sessions need a connection string.'
+      );
+    })();
+
   app.use(
     session({
+      store: MongoStore.create({
+        mongoUrl: connection,
+      }),
       secret,
       resave: false,
       saveUninitialized: true,
