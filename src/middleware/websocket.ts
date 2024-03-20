@@ -39,8 +39,6 @@ const dmRooms: IDMRooms = {};
 const usersOnline: IUsersOnlineMap = new Map();
 
 function websocketHandler(ws: WebSocket, req: IReq, next: INext) {
-  console.log('Here I am!');
-  console.log(req);
   if (!req.user) {
     blockAction(ws, 'User not logged in.');
     ws.close(1000);
@@ -122,7 +120,7 @@ function websocketHandler(ws: WebSocket, req: IReq, next: INext) {
     if (action === 'createDMRoom') {
       console.log('createDMRoom');
       if (req.user.username === data.receiver) {
-        blockAction(ws, `You can't DM yourself!`);
+        blockAction(ws, `You can't DM yourself.`);
         return;
       }
       const room = createDMRoom(user, usersOnline, dmRooms, data.receiver);
@@ -145,7 +143,7 @@ function websocketHandler(ws: WebSocket, req: IReq, next: INext) {
         dmRooms[data.room].sender.username !== req.user.username &&
         dmRooms[data.room].receiver.username !== req.user.username
       ) {
-        blockAction(ws, 'Access denied');
+        blockAction(ws, 'Access denied.');
         return;
       }
       joinDMRoom(ws, user, dmRooms, data.room);
