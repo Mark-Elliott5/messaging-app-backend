@@ -5,7 +5,7 @@ export interface IGuest {
   username: string;
   password: '';
   bio: '';
-  avatar: 0;
+  avatar: number;
   guest: true;
 }
 
@@ -13,9 +13,8 @@ const guestSchema = new Schema<IGuest, Model<IGuest>>({
   username: {
     type: String,
     required: true,
-    unique: true,
     minlength: 1,
-    maxlength: 11,
+    maxlength: 15,
   },
   password: { type: String, default: '', immutable: true },
   bio: { type: String, default: '', maxlength: 900 },

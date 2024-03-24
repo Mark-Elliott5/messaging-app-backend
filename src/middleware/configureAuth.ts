@@ -9,6 +9,7 @@ import bcrypt from 'bcryptjs';
 import { User } from '../types/mongoose/User';
 import { Guest } from '../types/mongoose/Guest';
 import { IReq } from '../types/express';
+import { Types } from 'mongoose';
 
 const configureAuthentication = (app: Application) => {
   const secret =
@@ -58,10 +59,10 @@ const configureAuthentication = (app: Application) => {
   passport.use(
     'guest',
     new CustomStrategy.Strategy(
-      async (req: IReq<{ username: string }>, done) => {
+      async (req: IReq<{ _id: Types.ObjectId }>, done) => {
         try {
           const guest = await Guest.findOne({
-            username: req.body.username,
+            _id: req.body._id,
           }).exec();
           if (!guest) {
             return done(null, false);

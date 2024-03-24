@@ -4,6 +4,8 @@ import { User } from '../types/mongoose/User';
 import bcrypt from 'bcryptjs';
 import { Guest } from '../types/mongoose/Guest';
 import BadWordsFilter from 'bad-words';
+import { Types } from 'mongoose';
+import { nanoid } from 'nanoid';
 
 const filter = new BadWordsFilter({ placeHolder: '*' });
 
@@ -57,7 +59,7 @@ const registerHandler = async (
 };
 
 const guestHandler = async (
-  req: IReq<{ username: string }>,
+  req: IReq<{ username: string; _id: Types.ObjectId }>,
   res: IRes,
   next: INext
 ) => {
@@ -67,14 +69,14 @@ const guestHandler = async (
       message: 'Guest names can only be 1-5 characters.',
     });
   }
-  const username = `Guest-${req.body.username}`;
-  await Guest.create({
+  const username = `Guest-${req.body.username}-${nanoid(3)}`;
+  const { _id } = await Guest.create({
     username,
     password: '',
     avatar: 0,
     bio: '',
   });
-  req.body.username = username;
+  req.body._id = _id;
   passport.authenticate('guest', function (err, user) {
     if (err) {
       console.log(err);

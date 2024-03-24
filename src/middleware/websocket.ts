@@ -170,7 +170,7 @@ function websocketHandler(ws: WebSocket, req: IReq, next: INext) {
           blockAction(ws, 'Bio not valid.');
         }
       }
-      const newProfile = updateProfile(ws, user, data.profile);
+      const newProfile = updateProfile(ws, user, data.profile, req.user.guest);
       if (!newProfile) {
         return;
       }

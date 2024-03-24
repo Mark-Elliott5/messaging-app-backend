@@ -12,7 +12,6 @@ import {
   IContentMessage,
   IProfileMessage,
   IUsersOnlineMessage,
-  ILoggedOutMessage,
 } from '../types/websocket/wsMessageTypes';
 import {
   IAllSockets,
@@ -25,6 +24,7 @@ import {
 import { User } from '../types/mongoose/User';
 import { IUpdateProfile } from '../types/websocket/wsActionTypes';
 import BadWordsFilter from 'bad-words';
+import { Guest } from '../types/mongoose/Guest';
 
 const filter = new BadWordsFilter({ placeHolder: '*' });
 
@@ -312,15 +312,21 @@ function joinDMRoom(
 function updateProfile(
   ws: WebSocket,
   user: IOnlineUser,
-  profile: IUpdateProfile['profile']
+  profile: IUpdateProfile['profile'],
+  guest: boolean
 ) {
   try {
     (async () => {
       try {
-        await User.findByIdAndUpdate(user._id, {
-          avatar: profile.avatar,
-          bio: profile.bio,
-        }).exec();
+        guest
+          ? await Guest.findByIdAndUpdate(user._id, {
+              avatar: profile.avatar,
+              bio: profile.bio,
+            }).exec()
+          : await User.findByIdAndUpdate(user._id, {
+              avatar: profile.avatar,
+              bio: profile.bio,
+            }).exec();
       } catch (err) {
         console.log(err);
       }
