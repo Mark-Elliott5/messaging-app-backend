@@ -12,19 +12,15 @@ import { IReq } from '../types/express';
 import { Types } from 'mongoose';
 
 const configureAuthentication = (app: Application) => {
-  const secret =
-    process.env.SECRET ??
-    (() => {
-      throw new Error('.env secret key not found! Sessions need a secret key.');
-    })();
+  const secret = process.env.SECRET;
+  if (secret === undefined)
+    throw new Error('.env secret key not found! Sessions need a secret key.');
 
-  const connection =
-    process.env.MONGODB_URI ??
-    (() => {
-      throw new Error(
-        'connection string not found! Sessions need a connection string.'
-      );
-    })();
+  const connection = process.env.MONGODB_URI;
+  if (connection === undefined)
+    throw new Error(
+      'Database connection string not found! Sessions need a connection string.'
+    );
 
   app.use(
     session({
@@ -36,7 +32,6 @@ const configureAuthentication = (app: Application) => {
       saveUninitialized: true,
     })
   );
-  // app.use(flash());
 
   passport.use(
     new LocalStrategy(async (username, password, done) => {

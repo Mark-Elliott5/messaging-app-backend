@@ -44,6 +44,7 @@ function websocketHandler(ws: WebSocket, req: IReq, next: INext) {
     ws.close(1000);
     return;
   }
+
   if (usersOnline.has(req.user.username)) {
     usersOnline.get(req.user.username)!.ws.close(1000);
   }
@@ -62,10 +63,12 @@ function websocketHandler(ws: WebSocket, req: IReq, next: INext) {
     _id: req.user._id,
     ws,
   });
+
   const name = req.user.username;
   const getUser = () => usersOnline.get(name)!;
 
   joinRoom(ws, getUser(), usersOnline, rooms, roomId);
+
   const usersOnlineMessage: IUsersOnlineMessage = {
     type: 'usersOnline',
     usersOnline: getIResponseUsersFromRoom(usersOnline),
@@ -93,21 +96,25 @@ function websocketHandler(ws: WebSocket, req: IReq, next: INext) {
     console.log(data);
     const { action } = data;
     const user = getUser();
+
     if (action === 'sendMessage') {
       if (typeof data.content !== 'string' || data.content.length > 900) {
         blockAction(ws, 'Message longer than 900 characters.');
         return;
       }
+
       if (inDMRoom) {
         console.log('inDmRoom');
         sendDM(user, data.content, usersOnline, dmRooms, roomId);
         sendDMTabs(usersOnline, dmRooms, roomId);
         return;
       }
+
       console.log('sendMessage');
       sendMessage(user, data.content, rooms, roomId);
       return;
     }
+
     if (action === 'joinRoom') {
       console.log('joinRoom');
       sendTyping(user, false, inDMRoom ? dmRooms : rooms, roomId);
@@ -117,14 +124,17 @@ function websocketHandler(ws: WebSocket, req: IReq, next: INext) {
       joinRoom(ws, user, usersOnline, rooms, roomId);
       return;
     }
+
     if (action === 'createDMRoom') {
       console.log('createDMRoom');
       if (req.user.username === data.receiver) {
         blockAction(ws, `You can't DM yourself.`);
         return;
       }
+
       const room = createDMRoom(user, usersOnline, dmRooms, data.receiver);
       if (!room || room === roomId) return;
+
       joinDMRoom(ws, user, dmRooms, room);
       sendTyping(user, false, inDMRoom ? dmRooms : rooms, roomId);
       removeFromRoom(ws, user, inDMRoom ? dmRooms : rooms, roomId);
@@ -132,6 +142,7 @@ function websocketHandler(ws: WebSocket, req: IReq, next: INext) {
       roomId = room;
       return;
     }
+
     if (action === 'joinDMRoom') {
       console.log('joinDMRoom');
       // make sure request is not coming from malicious user that is not in the DM
@@ -139,6 +150,7 @@ function websocketHandler(ws: WebSocket, req: IReq, next: INext) {
         blockAction(ws, 'Room does not exist.');
         return;
       }
+
       if (
         dmRooms[data.room].sender.username !== req.user.username &&
         dmRooms[data.room].receiver.username !== req.user.username
@@ -146,6 +158,7 @@ function websocketHandler(ws: WebSocket, req: IReq, next: INext) {
         blockAction(ws, 'Access denied.');
         return;
       }
+
       joinDMRoom(ws, user, dmRooms, data.room);
       sendTyping(user, false, inDMRoom ? dmRooms : rooms, roomId);
       removeFromRoom(ws, user, inDMRoom ? dmRooms : rooms, roomId);
@@ -153,11 +166,13 @@ function websocketHandler(ws: WebSocket, req: IReq, next: INext) {
       roomId = data.room;
       return;
     }
+
     if (action === 'typing') {
       console.log('typing');
       sendTyping(user, data.typing, inDMRoom ? dmRooms : rooms, roomId);
       return;
     }
+
     if (action === 'updateProfile') {
       console.log('updateProfile');
       if (data.profile.avatar && typeof data.profile.avatar === 'number') {
@@ -165,15 +180,18 @@ function websocketHandler(ws: WebSocket, req: IReq, next: INext) {
           blockAction(ws, 'Avatar not valid.');
         }
       }
+
       if (data.profile.bio) {
         if (typeof data.profile.bio !== 'string') {
           blockAction(ws, 'Bio not valid.');
         }
       }
+
       const newProfile = updateProfile(ws, user, data.profile, req.user.guest);
       if (!newProfile) {
         return;
       }
+
       usersOnline.set(req.user.username, {
         ...newProfile,
         ws,
@@ -186,6 +204,7 @@ function websocketHandler(ws: WebSocket, req: IReq, next: INext) {
       };
       const newUsersOnlineString = JSON.stringify(usersOnlineMessage);
       allSockets.forEach((ws) => ws.send(newUsersOnlineString));
+
       if (inDMRoom) {
         dmRooms[roomId].users.set(req.user.username, {
           ...newProfile,
@@ -201,6 +220,7 @@ function websocketHandler(ws: WebSocket, req: IReq, next: INext) {
         dmRooms[roomId].sockets.forEach((ws) => ws.send(jsonString));
         return;
       }
+
       rooms[roomId].users.set(req.user.username, {
         ...newProfile,
         ws,
@@ -214,16 +234,19 @@ function websocketHandler(ws: WebSocket, req: IReq, next: INext) {
       const jsonString = JSON.stringify(roomUsersMessage);
       rooms[roomId].sockets.forEach((ws) => ws.send(jsonString));
     }
-    if (data.action === 'logout') {
+
+    if (action === 'logout') {
       const logoutMessage: ILoggedOutMessage = {
         type: 'loggedOut',
       };
       const jsonLogoutMessage = JSON.stringify(logoutMessage);
+
       ws.send(jsonLogoutMessage);
       ws.close();
       req.logOut((err) => {
         next(err);
       });
+
       req.session.destroy(function (err) {
         if (err) {
           console.log(err);

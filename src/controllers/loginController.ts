@@ -16,12 +16,13 @@ const loginHandler = (
 ) => {
   passport.authenticate('local', function (err, user) {
     if (err) {
-      console.log('err');
+      console.log('passport authenticate user error: ', err);
       return res.json({
         authenticated: false,
         message: 'Server error. Try again.',
       });
     }
+
     if (!user) {
       return res.json({
         authenticated: false,
@@ -29,7 +30,7 @@ const loginHandler = (
       });
     }
     req.logIn(user, { session: true }, (err) => {
-      console.log(err);
+      console.log('req.logIn() user error: ', err);
     });
     res.json({ authenticated: true });
   } as AuthenticateCallback)(req, res, next);
@@ -69,6 +70,7 @@ const guestHandler = async (
       message: 'Guest names can only be 1-5 characters.',
     });
   }
+
   const username = `Guest-${req.body.username}-${nanoid(3)}`;
   const { _id } = await Guest.create({
     username,
@@ -79,12 +81,13 @@ const guestHandler = async (
   req.body._id = _id;
   passport.authenticate('guest', function (err, user) {
     if (err) {
-      console.log(err);
+      console.log('passport authenticate guest error: ', err);
       return res.json({
         authenticated: false,
         message: 'Server error. Try again.',
       });
     }
+
     if (!user) {
       return res.json({
         authenticated: false,
@@ -92,7 +95,7 @@ const guestHandler = async (
       });
     }
     req.logIn(user, { session: true }, (err) => {
-      console.log(err);
+      console.log('req.logIn() guest error: ', err);
     });
     res.json({ authenticated: true });
   } as AuthenticateCallback)(req, res, next);

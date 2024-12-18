@@ -25,15 +25,16 @@ app.set('trust proxy', true);
 
 mongoose.set('strictQuery', true);
 
-const connectToDB = async () => {
+(async () => {
   try {
-    const mongoDBURI: string = process.env.MONGODB_URI ?? '';
+    const mongoDBURI = process.env.MONGODB_URI;
+    if (mongoDBURI === undefined)
+      throw new Error('Database connection string undefined.');
     await mongoose.connect(mongoDBURI);
   } catch (err) {
     console.log(`Database connection error: ${err}`);
   }
-};
-connectToDB();
+})();
 
 const limiter = rateLimit({
   windowMs: 10 * 1000,
@@ -64,6 +65,7 @@ app.ws('/chat', websocketHandler);
 // Catch 404
 app.use((req: IReq, res: IRes) => {
   console.log('app.ts 404');
+
   res.status(404).json({
     status: 404,
     error: 'Not Found',
@@ -76,8 +78,7 @@ app.use((req: IReq, res: IRes) => {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 app.use((err: Error, req: IReq, res: IRes, next: INext): void => {
   // set locals, only providing error in development
-  console.log('App.ts error caught');
-  console.log(err);
+  console.log('App.ts error caught: ', err);
 
   res.locals.message = err.message;
   res.locals.error = req.app.get('env') === 'development' ? err : {};

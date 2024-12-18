@@ -43,8 +43,8 @@ function sendTyping(
     };
     const jsonString = JSON.stringify(typingMessage);
     rooms[room].sockets.forEach((ws) => ws.send(jsonString));
-  } catch (error) {
-    console.log(error);
+  } catch (err) {
+    console.log('websocket sendTyping error: ', err);
   }
 }
 
@@ -63,7 +63,7 @@ async function sendMessage(
         try {
           return filter.clean(content);
         } catch (err) {
-          console.log(err);
+          console.log('websocket filter content error: ', err);
           return content;
         }
       })(),
@@ -87,7 +87,7 @@ async function sendMessage(
       ws.send(jsonString);
     });
   } catch (err) {
-    console.log(err);
+    console.log('websocket sendMessage error: ', err);
   }
 }
 
@@ -125,7 +125,7 @@ function sendDM(
       ws.send(jsonString);
     });
   } catch (err) {
-    console.log(err);
+    console.log('websocket sendDM error: ', err);
   }
 }
 
@@ -158,7 +158,7 @@ function sendDMTabs(
     usersOnline.get(sender.username)?.ws.send(JSON.stringify(senderTab));
     usersOnline.get(receiver.username)?.ws.send(JSON.stringify(receiverTab));
   } catch (err) {
-    console.log(err);
+    console.log('websocket sendDMTabs error: ', err);
   }
 }
 
@@ -171,7 +171,7 @@ function blockAction(ws: WebSocket, message: string) {
     const jsonString = JSON.stringify(blockMessage);
     ws.send(jsonString);
   } catch (err) {
-    console.log(err);
+    console.log('websocket blockAction error: ', err);
   }
 }
 
@@ -214,7 +214,7 @@ function joinRoom(
       ws.send(messageHistoryJsonString);
     });
   } catch (err) {
-    console.log(err);
+    console.log('websocket joinRoom error: ', err);
   }
 }
 
@@ -239,7 +239,7 @@ function removeFromRoom(
       ws.send(jsonString);
     });
   } catch (err) {
-    console.log(err);
+    console.log('websocket removeFromRoom error: ', err);
   }
 }
 
@@ -272,7 +272,7 @@ function createDMRoom(
     }
     return room;
   } catch (err) {
-    console.log(err);
+    console.log('websocket createDMRoom error: ', err);
   }
 }
 
@@ -305,7 +305,7 @@ function joinDMRoom(
       ws.send(jsonString);
     });
   } catch (err) {
-    console.log(err);
+    console.log('websocket sendTyping error: ', err);
   }
 }
 
@@ -328,7 +328,7 @@ function updateProfile(
               bio: profile.bio,
             }).exec();
       } catch (err) {
-        console.log(err);
+        console.log('findByIdAndUpdate error: ', err);
       }
     })();
     const newProfile = {
@@ -344,7 +344,7 @@ function updateProfile(
     ws.send(jsonString);
     return newProfile;
   } catch (err) {
-    console.log(err);
+    console.log('websocket updateProfile error: ', err);
   }
 }
 
@@ -370,7 +370,7 @@ function handleClose(
     });
     removeFromRoom(ws, user, rooms, roomId);
   } catch (err) {
-    console.log(err);
+    console.log('websocket handleClose error: ', err);
   }
 }
 
@@ -407,7 +407,7 @@ function populateRoomHistory() {
         .exec();
       newRoom.messages = history;
     } catch (err) {
-      console.log(err);
+      console.log('websocket populateRoomHistory error: ', err);
     }
     return newRoom;
   };
